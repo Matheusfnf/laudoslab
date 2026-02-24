@@ -146,12 +146,12 @@ const ReportPDFTemplate = React.forwardRef(({ report, micros }, ref) => {
                                         </div>
                                     </div>
 
-                                    {/* Contaminantes */}
+                                    {/* Indicadores */}
                                     <div style={{ background: '#f5f9ff', borderRadius: '12px', padding: '20px', borderLeft: '4px solid #007aff' }}>
-                                        <h4 style={{ margin: '0 0 16px 0', color: '#0056b3', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Contaminantes</h4>
+                                        <h4 style={{ margin: '0 0 16px 0', color: '#0056b3', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Indicadores</h4>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-                                                <span style={{ fontSize: '14px', color: '#666' }}>Coliformes</span>
+                                                <span style={{ fontSize: '14px', color: '#666' }}>Enterobactérias</span>
                                                 <span style={{ fontSize: '14px', color: '#1a1a1a', fontWeight: 600 }}>{micro.enterobacteria || '-'}</span>
                                             </div>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '4px' }}>
