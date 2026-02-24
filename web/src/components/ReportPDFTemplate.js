@@ -132,7 +132,7 @@ const ReportPDFTemplate = React.forwardRef(({ report, micros }, ref) => {
 
                                 {micro.observations && (
                                     <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #f0f0f0' }}>
-                                        <span style={{ display: 'block', fontSize: '11px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Observações do Microrganismo</span>
+                                        <span style={{ display: 'block', fontSize: '11px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Observações da amostra</span>
                                         <p style={{ margin: 0, fontSize: '13px', color: '#444', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{micro.observations}</p>
                                     </div>
                                 )}
@@ -177,7 +177,7 @@ const ReportPDFTemplate = React.forwardRef(({ report, micros }, ref) => {
 
             {report.observations && (
                 <div style={{ marginTop: '20px', background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    <h2 style={{ fontSize: '16px', color: '#1a1a1a', fontWeight: 'bold', margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Observações do Laudo</h2>
+                    <h2 style={{ fontSize: '16px', color: '#1a1a1a', fontWeight: 'bold', margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Considerações do Laudo</h2>
                     <p style={{ margin: 0, fontSize: '13px', color: '#444', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{report.observations}</p>
                 </div>
             )}

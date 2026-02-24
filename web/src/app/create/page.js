@@ -633,7 +633,7 @@ export default function CreateReport() {
                                 </div>
 
                                 <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}>
-                                    <label>Observação do Microrganismo (Opcional)</label>
+                                    <label>Observações da amostra (Opcional)</label>
                                     <textarea
                                         value={micro.observations || ''}
                                         onChange={(e) => handleMicroChange(index, 'observations', e.target.value)}
@@ -727,18 +727,18 @@ export default function CreateReport() {
                     </div>
                 </div>
 
-                {/* Observações Gerais do Laudo */}
+                {/* Considerações do Laudo */}
                 <div className="card" style={{ marginBottom: '2rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h2 style={{ marginBottom: 0 }}>Observações Gerais do Laudo</h2>
+                        <h2 style={{ marginBottom: 0 }}>Considerações do Laudo</h2>
                     </div>
                     <div className="form-group" style={{ marginBottom: 0 }}>
-                        <label>Observações Adicionais (Opcional)</label>
+                        <label>Considerações Adicionais (Opcional)</label>
                         <textarea
                             name="observations"
                             value={header.observations}
                             onChange={handleHeaderChange}
-                            placeholder="Adicione qualquer observação geral pertinente ao laudo inteiro..."
+                            placeholder="Adicione qualquer consideração complementar pertinente ao laudo inteiro..."
                             style={{ width: '100%', minHeight: '100px', padding: '1rem', borderRadius: '8px', border: '1px solid #ccd0d5', resize: 'vertical', fontSize: '1rem' }}
                         />
                     </div>
