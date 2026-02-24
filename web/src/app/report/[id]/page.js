@@ -307,12 +307,31 @@ export default function ReportView() {
                                         <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Bolor / Levedura</span>
                                         <span style={{ color: 'var(--text-main)' }}>{micro.mold_yeast || '-'}</span>
                                     </div>
+
+                                    {micro.observations && (
+                                        <div style={{ gridColumn: '1 / -1', background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--border-color)', marginTop: '0.5rem' }}>
+                                            <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Observações da amostra</span>
+                                            <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>{micro.observations}</p>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* Considerações do Laudo */}
+            {report.observations && (
+                <div className="card" style={{ marginTop: '2rem' }}>
+                    <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <FileIcon size={20} color="var(--primary-color)" /> Considerações do Laudo
+                    </h2>
+                    <p style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>
+                        {report.observations}
+                    </p>
+                </div>
+            )}
 
             {/* Anexos Fotográficos */}
             {report.images && report.images.length > 0 && (
