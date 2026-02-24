@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { PlusCircle, Trash2, ArrowLeft, Save, CheckCircle, Loader2, Upload, X } from 'lucide-react'
+import ImageEditorModal from '@/components/ImageEditorModal'
 
 // Util function to format powers like ^5 to ⁵
 const formatSuperscript = (text) => {
@@ -36,7 +37,8 @@ export default function EditReport() {
         delivered_by: '',
         collection_date: '',
         city: '',
-        state: ''
+        state: '',
+        observations: ''
     })
 
     const [clients, setClients] = useState([])
@@ -79,7 +81,8 @@ export default function EditReport() {
                     delivered_by: reportData.delivered_by || '',
                     collection_date: reportData.collection_date || '',
                     city: reportData.city || '',
-                    state: reportData.state || ''
+                    state: reportData.state || '',
+                    observations: reportData.observations || ''
                 })
 
                 if (reportData.images) {
@@ -113,7 +116,7 @@ export default function EditReport() {
                     setMicros(adaptedMicros)
                 } else {
                     // Start with one empty if none exist
-                    setMicros([{ code: '', name: '', ph: '', recovered: [{ name: '', cfu_per_ml: '' }], enterobacteria: '', mold_yeast: '', commercial_product: '' }])
+                    setMicros([{ code: '', name: '', ph: '', recovered: [{ name: '', cfu_per_ml: '' }], enterobacteria: '', mold_yeast: '', commercial_product: '', observations: '' }])
                 }
 
             } catch (err) {
@@ -203,7 +206,7 @@ export default function EditReport() {
     }
 
     const addMicro = () => {
-        setMicros([...micros, { code: '', name: '', ph: '', recovered: [{ name: '', cfu_per_ml: '' }], enterobacteria: '', mold_yeast: '', commercial_product: '' }])
+        setMicros([...micros, { code: '', name: '', ph: '', recovered: [{ name: '', cfu_per_ml: '' }], enterobacteria: '', mold_yeast: '', commercial_product: '', observations: '' }])
     }
 
     const removeMicro = (index) => {
@@ -213,41 +216,42 @@ export default function EditReport() {
     }
 
     const [uploadingImage, setUploadingImage] = useState(false)
+    const [fileQueue, setFileQueue] = useState([])
 
     const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files)
         if (!files || files.length === 0) return
 
+        setFileQueue(files)
+        e.target.value = null
+    }
+
+    const processEditedFile = async (editedFile) => {
         setUploadingImage(true)
         setError(null)
 
         try {
-            const uploadedUrls = []
+            const fileExt = editedFile.name.split('.').pop()
+            const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
+            const filePath = `${fileName}`
 
-            for (const file of files) {
-                const fileExt = file.name.split('.').pop()
-                const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`
-                const filePath = `${fileName}`
+            const { error: uploadError } = await supabase.storage
+                .from('report_images')
+                .upload(filePath, editedFile)
 
-                const { error: uploadError } = await supabase.storage
-                    .from('report_images')
-                    .upload(filePath, file)
+            if (uploadError) throw uploadError
 
-                if (uploadError) throw uploadError
+            const { data: publicUrlData } = supabase.storage
+                .from('report_images')
+                .getPublicUrl(filePath)
 
-                const { data: publicUrlData } = supabase.storage
-                    .from('report_images')
-                    .getPublicUrl(filePath)
-
-                uploadedUrls.push({ url: publicUrlData.publicUrl, description: '' })
-            }
-
-            setImages(prev => [...prev, ...uploadedUrls])
+            setImages(prev => [...prev, { url: publicUrlData.publicUrl, description: '' }])
         } catch (err) {
             console.error('Error uploading image: ', err)
             setError('Erro ao enviar imagem: ' + err.message)
         } finally {
             setUploadingImage(false)
+            setFileQueue(prev => prev.slice(1))
         }
     }
 
@@ -353,6 +357,13 @@ export default function EditReport() {
 
     return (
         <div style={{ paddingBottom: '3rem', maxWidth: '800px', margin: '0 auto' }}>
+            <ImageEditorModal
+                isOpen={fileQueue.length > 0}
+                imageFile={fileQueue[0]}
+                onClose={() => setFileQueue(prev => prev.slice(1))}
+                onSave={processEditedFile}
+            />
+
             <div className="header-actions">
                 <div>
                     <button type="button" className="btn btn-secondary" onClick={() => router.push(`/report/${id}`)} style={{ padding: '0.5rem 1rem', marginBottom: '1.5rem' }}>
@@ -588,6 +599,16 @@ export default function EditReport() {
                                     />
                                 </div>
 
+                                <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}>
+                                    <label>Observação do Microrganismo (Opcional)</label>
+                                    <textarea
+                                        value={micro.observations || ''}
+                                        onChange={(e) => handleMicroChange(index, 'observations', e.target.value)}
+                                        placeholder="Ex: Crescimento atípico observado..."
+                                        style={{ width: '100%', minHeight: '60px', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccd0d5', resize: 'vertical' }}
+                                    />
+                                </div>
+
                                 <div style={{ gridColumn: '1 / -1', background: 'rgba(52, 199, 89, 0.05)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--success-color)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                         <h4 style={{ margin: 0, color: 'var(--success-color)', fontSize: '0.95rem', fontWeight: 600 }}>Microrganismos Recuperados</h4>
@@ -670,6 +691,23 @@ export default function EditReport() {
                                 )}
                             </div>
                         ))}
+                    </div>
+                </div>
+
+                {/* Observações Gerais do Laudo */}
+                <div className="card" style={{ marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <h2 style={{ marginBottom: 0 }}>Observações Gerais do Laudo</h2>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label>Observações Adicionais (Opcional)</label>
+                        <textarea
+                            name="observations"
+                            value={header.observations || ''}
+                            onChange={handleHeaderChange}
+                            placeholder="Adicione qualquer observação geral pertinente ao laudo inteiro..."
+                            style={{ width: '100%', minHeight: '100px', padding: '1rem', borderRadius: '8px', border: '1px solid #ccd0d5', resize: 'vertical', fontSize: '1rem' }}
+                        />
                     </div>
                 </div>
 
