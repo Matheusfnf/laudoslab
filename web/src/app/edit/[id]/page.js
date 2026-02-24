@@ -6,6 +6,21 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { PlusCircle, Trash2, ArrowLeft, Save, CheckCircle, Loader2, Upload, X } from 'lucide-react'
 
+// Util function to format powers like ^5 to ⁵
+const formatSuperscript = (text) => {
+    if (!text) return text;
+    const map = {
+        '^0': '⁰', '^1': '¹', '^2': '²', '^3': '³', '^4': '⁴',
+        '^5': '⁵', '^6': '⁶', '^7': '⁷', '^8': '⁸', '^9': '⁹'
+    };
+    let formattedText = text;
+    for (const [key, val] of Object.entries(map)) {
+        // Use regex global replace
+        formattedText = formattedText.split(key).join(val);
+    }
+    return formattedText;
+};
+
 export default function EditReport() {
     const router = useRouter()
     const { id } = useParams()
@@ -67,7 +82,12 @@ export default function EditReport() {
                     state: reportData.state || ''
                 })
 
-                if (reportData.images) setImages(reportData.images)
+                if (reportData.images) {
+                    const normalized = reportData.images.map(img =>
+                        typeof img === 'string' ? { url: img, description: '' } : img
+                    )
+                    setImages(normalized)
+                }
 
                 // Set selected client properties if a client is linked
                 if (reportData.client_id && clientsData) {
@@ -151,13 +171,22 @@ export default function EditReport() {
 
     const handleMicroChange = (index, field, value) => {
         const updated = [...micros]
-        updated[index][field] = value
+        // Auto-format for specific fields that might use superscripts
+        if (['enterobacteria', 'mold_yeast'].includes(field)) {
+            updated[index][field] = formatSuperscript(value)
+        } else {
+            updated[index][field] = value
+        }
         setMicros(updated)
     }
 
     const handleRecoveredChange = (microIndex, recIndex, field, value) => {
         const updated = [...micros]
-        updated[microIndex].recovered[recIndex][field] = value
+        if (field === 'cfu_per_ml') {
+            updated[microIndex].recovered[recIndex][field] = formatSuperscript(value)
+        } else {
+            updated[microIndex].recovered[recIndex][field] = value
+        }
         setMicros(updated)
     }
 
@@ -210,7 +239,7 @@ export default function EditReport() {
                     .from('report_images')
                     .getPublicUrl(filePath)
 
-                uploadedUrls.push(publicUrlData.publicUrl)
+                uploadedUrls.push({ url: publicUrlData.publicUrl, description: '' })
             }
 
             setImages(prev => [...prev, ...uploadedUrls])
@@ -224,6 +253,12 @@ export default function EditReport() {
 
     const removeImage = (indexToRemove) => {
         setImages(images.filter((_, index) => index !== indexToRemove))
+    }
+
+    const handleImageDescriptionChange = (index, value) => {
+        const updated = [...images]
+        updated[index].description = value
+        setImages(updated)
     }
 
     const handleSubmit = async (e) => {
@@ -574,7 +609,7 @@ export default function EditReport() {
                                                     />
                                                 </div>
                                                 <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
-                                                    <label style={{ fontSize: '0.8rem' }}>UFC/mL</label>
+                                                    <label style={{ fontSize: '0.8rem' }}>UFC/mL <span style={{ color: '#888', fontWeight: 400 }}>(Ex: ^4 para ⁴)</span></label>
                                                     <input
                                                         type="text"
                                                         value={rec.cfu_per_ml || ''}
@@ -602,22 +637,22 @@ export default function EditReport() {
                                     <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary-color)', fontSize: '0.95rem', fontWeight: 600 }}>Indicadores</h4>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                         <div className="form-group" style={{ marginBottom: 0 }}>
-                                            <label>Enterobactérias</label>
+                                            <label>Enterobactérias <span style={{ color: '#888', fontWeight: 400, fontSize: '0.8rem' }}>(Ex: ^4 para ⁴)</span></label>
                                             <input
                                                 type="text"
                                                 value={micro.enterobacteria || ''}
                                                 onChange={(e) => handleMicroChange(index, 'enterobacteria', e.target.value)}
-                                                placeholder="Ex: Ausência"
+                                                placeholder="Ex: < 10 UFC/g"
                                             />
                                         </div>
 
                                         <div className="form-group" style={{ marginBottom: 0 }}>
-                                            <label>Bolor/Levedura</label>
+                                            <label>Bolor/Levedura <span style={{ color: '#888', fontWeight: 400, fontSize: '0.8rem' }}>(Ex: ^4 para ⁴)</span></label>
                                             <input
                                                 type="text"
                                                 value={micro.mold_yeast || ''}
                                                 onChange={(e) => handleMicroChange(index, 'mold_yeast', e.target.value)}
-                                                placeholder="Ex: < 10 UFC/g"
+                                                placeholder="Ex: 1x10⁴ UFC/g"
                                             />
                                         </div>
                                     </div>
@@ -673,10 +708,19 @@ export default function EditReport() {
 
                     {images.length > 0 && (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem', marginTop: '1rem', alignItems: 'start' }}>
-                            {images.map((imgUrl, idx) => (
+                            {images.map((imgObj, idx) => (
                                 <div key={idx} style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
                                     <div style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
-                                        <img src={imgUrl} alt={`Anexo ${idx + 1}`} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />
+                                        <img src={imgObj.url} alt={`Anexo ${idx + 1}`} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />
+                                    </div>
+                                    <div style={{ padding: '10px', borderTop: '1px solid #e2e8f0', backgroundColor: '#fff' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Adicionar descrição ou observação... (opcional)"
+                                            value={imgObj.description || ''}
+                                            onChange={(e) => handleImageDescriptionChange(idx, e.target.value)}
+                                            style={{ width: '100%', fontSize: '0.9rem', padding: '0.5rem', border: '1px solid #ccd0d5', borderRadius: '4px' }}
+                                        />
                                     </div>
                                     <button
                                         type="button"

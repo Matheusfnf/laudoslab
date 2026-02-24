@@ -172,14 +172,21 @@ const ReportPDFTemplate = React.forwardRef(({ report, micros }, ref) => {
                 <div style={{ marginTop: '30px', breakBefore: 'page', pageBreakBefore: 'always' }}>
                     <h2 style={{ fontSize: '20px', color: '#1a1a1a', fontWeight: 'bold', margin: '0 0 20px 0', paddingLeft: '5px' }}>Anexos Fotográficos</h2>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-                        {report.images.map((imgUrl, idx) => (
-                            <div key={idx} style={{ background: '#fff', padding: '15px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', pageBreakInside: 'avoid', breakInside: 'avoid', display: 'inline-block', width: '100%', textAlign: 'center' }}>
-                                <div style={{ width: '100%', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-                                    <img src={imgUrl} alt={`Anexo ${idx + 1}`} style={{ maxWidth: '100%', height: 'auto', display: 'block', maxHeight: '800px' }} />
+                        {report.images.map((imgObj, idx) => {
+                            const url = typeof imgObj === 'string' ? imgObj : imgObj.url;
+                            const desc = typeof imgObj === 'string' ? '' : imgObj.description;
+                            return (
+                                <div key={idx} style={{ background: '#fff', padding: '15px', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', pageBreakInside: 'avoid', breakInside: 'avoid', display: 'inline-block', width: '100%', textAlign: 'center' }}>
+                                    <div style={{ width: '100%', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+                                        <img src={url} alt={`Anexo ${idx + 1}`} style={{ maxWidth: '100%', height: 'auto', display: 'block', maxHeight: '800px' }} />
+                                    </div>
+                                    <div style={{ marginTop: '10px' }}>
+                                        <span style={{ display: 'block', fontSize: '13px', color: '#64748b', fontWeight: 700 }}>Figura {idx + 1}</span>
+                                        {desc && <span style={{ display: 'block', fontSize: '14px', color: '#1a1a1a', marginTop: '4px' }}>{desc}</span>}
+                                    </div>
                                 </div>
-                                <span style={{ display: 'block', marginTop: '10px', fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Figura {idx + 1}</span>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 </div>
             )}
@@ -202,32 +209,48 @@ const ReportPDFTemplate = React.forwardRef(({ report, micros }, ref) => {
                     <p style={{ margin: 0, fontSize: '12px', color: '#444' }}>Fone: (34) 9 9303-0633 &nbsp;|&nbsp; e-mail: gestaoadm@proativa.agr.br</p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '60px', borderTop: '1px solid #edf1f7', paddingTop: '20px' }}>
-                    <div>
-                        <strong style={{ display: 'block', marginBottom: '8px', color: '#1a1a1a', fontSize: '12px' }}>Legenda:</strong>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div><strong>UFC</strong> = unidades formadoras de colônias</div>
-                            <div><strong>N.D</strong> = não detectado</div>
-                            <div><strong>N.C</strong> = não consta</div>
-                            <div><strong>N.S</strong> = não solicitado</div>
-                            <div><strong>&lt;1x10</strong> = ausência na menor alíquota inoculada</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #edf1f7', paddingTop: '20px' }}>
+                    <div style={{ display: 'flex', gap: '60px' }}>
+                        <div>
+                            <strong style={{ display: 'block', marginBottom: '8px', color: '#1a1a1a', fontSize: '12px' }}>Legenda:</strong>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div><strong>UFC</strong> = unidades formadoras de colônias</div>
+                                <div><strong>N.D</strong> = não detectado</div>
+                                <div><strong>N.C</strong> = não consta</div>
+                                <div><strong>N.S</strong> = não solicitado</div>
+                                <div><strong>&lt;1x10</strong> = ausência na menor alíquota inoculada</div>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '40px', marginTop: '22px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div>10<sup>0</sup> = 1</div>
+                                <div>10<sup>1</sup> = 10</div>
+                                <div>10<sup>2</sup> = 100</div>
+                                <div>10<sup>3</sup> = 1.000</div>
+                                <div>10<sup>4</sup> = 10.000</div>
+                                <div>10<sup>5</sup> = 100.000</div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div>10<sup>6</sup> = 1.000.000</div>
+                                <div>10<sup>7</sup> = 10.000.000</div>
+                                <div>10<sup>8</sup> = 100.000.000</div>
+                                <div>10<sup>9</sup> = 1.000.000.000</div>
+                                <div>10<sup>10</sup> = 10.000.000.000</div>
+                            </div>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '40px', marginTop: '22px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div>10<sup>0</sup> = 1</div>
-                            <div>10<sup>1</sup> = 10</div>
-                            <div>10<sup>2</sup> = 100</div>
-                            <div>10<sup>3</sup> = 1.000</div>
-                            <div>10<sup>4</sup> = 10.000</div>
-                            <div>10<sup>5</sup> = 100.000</div>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div>10<sup>6</sup> = 1.000.000</div>
-                            <div>10<sup>7</sup> = 10.000.000</div>
-                            <div>10<sup>8</sup> = 100.000.000</div>
-                            <div>10<sup>9</sup> = 1.000.000.000</div>
-                            <div>10<sup>10</sup> = 10.000.000.000</div>
+
+                    <div style={{ alignSelf: 'flex-end', textAlign: 'center', minWidth: '220px', paddingRight: '10px' }}>
+                        <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#1a1a1a' }}>Responsável Técnico</p>
+                        <img
+                            src="/logos/assinatura.png"
+                            alt="Assinatura Leslie Dias Franco"
+                            style={{ maxWidth: '100%', height: '50px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                        <div style={{ borderTop: '1px solid #1a1a1a', paddingTop: '4px', marginTop: '2px' }}>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#1a1a1a', fontWeight: 'bold' }}>Eng. Agr. Leslie Dias Franco</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: '#1a1a1a' }}>CREA-24928/D-GO</p>
                         </div>
                     </div>
                 </div>

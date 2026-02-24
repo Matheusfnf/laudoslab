@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { Users, PlusCircle, Trash2, Home, MapPin } from 'lucide-react'
+import { Users, PlusCircle, Trash2, Home, MapPin, Pencil } from 'lucide-react'
 
 export default function Clients() {
     const [clients, setClients] = useState([])
     const [loading, setLoading] = useState(true)
     const [isAdding, setIsAdding] = useState(false)
+    const [editingId, setEditingId] = useState(null)
     const [newClient, setNewClient] = useState({ name: '', properties: [{ name: '', city: '', state: '' }] })
     const [saving, setSaving] = useState(false)
 
@@ -49,6 +50,28 @@ export default function Clients() {
         setNewClient({ ...newClient, properties: updated })
     }
 
+    const resetForm = () => {
+        setIsAdding(false)
+        setEditingId(null)
+        setNewClient({ name: '', properties: [{ name: '', city: '', state: '' }] })
+    }
+
+    const handleEditClient = (client) => {
+        // Prepare the client properties for the form
+        // If they had no properties, provide at least one empty one to edit
+        const clientProps = client.properties && client.properties.length > 0
+            ? [...client.properties]
+            : [{ name: '', city: '', state: '' }]
+
+        setNewClient({
+            name: client.name,
+            properties: clientProps
+        })
+        setEditingId(client.id)
+        setIsAdding(true)
+        window.scrollTo(0, 0)
+    }
+
     const handleSaveClient = async (e) => {
         e.preventDefault()
         setSaving(true)
@@ -56,21 +79,44 @@ export default function Clients() {
             // Remove empty properties before saving
             const filteredProperties = newClient.properties.filter(p => p.name.trim() !== '')
 
-            const { data, error } = await supabase
-                .from('clients')
-                .insert([{
-                    name: newClient.name,
-                    city: null,
-                    state: null,
-                    properties: filteredProperties
-                }])
-                .select()
+            let savedData = null;
 
-            if (error) throw error
+            if (editingId) {
+                // UPDATE existing client
+                const { data, error } = await supabase
+                    .from('clients')
+                    .update({
+                        name: newClient.name,
+                        properties: filteredProperties
+                    })
+                    .eq('id', editingId)
+                    .select()
 
-            setClients([...clients, data[0]].sort((a, b) => a.name.localeCompare(b.name)))
-            setIsAdding(false)
-            setNewClient({ name: '', properties: [{ name: '', city: '', state: '' }] })
+                if (error) throw error
+                savedData = data[0]
+
+                // Replace the old client with the updated one in the list
+                setClients(clients.map(c => c.id === editingId ? savedData : c).sort((a, b) => a.name.localeCompare(b.name)))
+            } else {
+                // INSERT new client
+                const { data, error } = await supabase
+                    .from('clients')
+                    .insert([{
+                        name: newClient.name,
+                        city: null,
+                        state: null,
+                        properties: filteredProperties
+                    }])
+                    .select()
+
+                if (error) throw error
+                savedData = data[0]
+
+                // Add the new client to the list
+                setClients([...clients, savedData].sort((a, b) => a.name.localeCompare(b.name)))
+            }
+
+            resetForm()
         } catch (error) {
             alert('Erro ao salvar cliente: ' + error.message)
         } finally {
@@ -111,7 +157,10 @@ export default function Clients() {
                             </button>
                         </Link>
                         {!isAdding && (
-                            <button className="btn btn-primary" onClick={() => setIsAdding(true)}>
+                            <button className="btn btn-primary" onClick={() => {
+                                resetForm()
+                                setIsAdding(true)
+                            }}>
                                 <PlusCircle size={18} /> Novo Cliente
                             </button>
                         )}
@@ -121,7 +170,7 @@ export default function Clients() {
 
             {isAdding && (
                 <div className="card" style={{ marginBottom: '2rem', border: '2px solid var(--primary-color)' }}>
-                    <h2 style={{ marginBottom: '1.5rem' }}>Adicionar Novo Cliente</h2>
+                    <h2 style={{ marginBottom: '1.5rem' }}>{editingId ? 'Editar Cliente' : 'Adicionar Novo Cliente'}</h2>
                     <form onSubmit={handleSaveClient}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(250px, 1fr)', gap: '1.5rem', marginBottom: '1.5rem' }}>
                             <div className="form-group">
@@ -186,9 +235,9 @@ export default function Clients() {
                         </div>
 
                         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                            <button type="button" className="btn btn-secondary" onClick={() => setIsAdding(false)}>Cancelar</button>
+                            <button type="button" className="btn btn-secondary" onClick={resetForm}>Cancelar</button>
                             <button type="submit" className="btn btn-primary" disabled={saving}>
-                                {saving ? 'Salvando...' : 'Salvar Cliente'}
+                                {saving ? 'Salvando...' : (editingId ? 'Salvar Alterações' : 'Salvar Cliente')}
                             </button>
                         </div>
                     </form>
@@ -226,9 +275,14 @@ export default function Clients() {
                                     )}
                                 </div>
 
-                                <button onClick={() => handleDeleteClient(client.id)} className="btn btn-secondary" style={{ color: '#c62828', background: 'transparent', padding: '0.5rem' }} title="Excluir cliente">
-                                    <Trash2 size={20} />
-                                </button>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button onClick={() => handleEditClient(client)} className="btn btn-secondary" style={{ color: 'var(--primary-color)', background: '#e5f1ff', padding: '0.5rem', border: 'none' }} title="Editar cliente">
+                                        <Pencil size={18} />
+                                    </button>
+                                    <button onClick={() => handleDeleteClient(client.id)} className="btn btn-secondary" style={{ color: '#c62828', background: '#ffebee', padding: '0.5rem', border: 'none' }} title="Excluir cliente">
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>

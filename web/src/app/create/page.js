@@ -4,7 +4,22 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { PlusCircle, Trash2, ArrowLeft, Save, CheckCircle, UploadCloud, Sparkles, Loader2 } from 'lucide-react'
+import { PlusCircle, Trash2, ArrowLeft, Save, CheckCircle, UploadCloud, Sparkles, Loader2, Image as ImageIcon, X } from 'lucide-react'
+
+// Util function to format powers like ^5 to ⁵
+const formatSuperscript = (text) => {
+    if (!text) return text;
+    const map = {
+        '^0': '⁰', '^1': '¹', '^2': '²', '^3': '³', '^4': '⁴',
+        '^5': '⁵', '^6': '⁶', '^7': '⁷', '^8': '⁸', '^9': '⁹'
+    };
+    let formattedText = text;
+    for (const [key, val] of Object.entries(map)) {
+        // Use regex global replace
+        formattedText = formattedText.split(key).join(val);
+    }
+    return formattedText;
+};
 
 export default function CreateReport() {
     const router = useRouter()
@@ -42,6 +57,8 @@ export default function CreateReport() {
 
     const [loading, setLoading] = useState(false)
     const [aiLoading, setAiLoading] = useState(false)
+    const [images, setImages] = useState([])
+    const [uploadingImage, setUploadingImage] = useState(false)
     const [success, setSuccess] = useState(false)
     const [error, setError] = useState(null)
 
@@ -141,15 +158,71 @@ export default function CreateReport() {
         setHeader(prev => ({ ...prev, [name]: value }))
     }
 
+    const handlePhotoUpload = async (e) => {
+        const files = Array.from(e.target.files)
+        if (files.length === 0) return
+
+        setUploadingImage(true)
+        setError(null)
+        const uploadedUrls = []
+
+        try {
+            for (const file of files) {
+                const fileExt = file.name.split('.').pop()
+                const fileName = `${Math.random()}.${fileExt}`
+                const filePath = `${fileName}`
+
+                const { error: uploadError } = await supabase.storage
+                    .from('report_images')
+                    .upload(filePath, file)
+
+                if (uploadError) throw uploadError
+
+                const { data: publicUrlData } = supabase.storage
+                    .from('report_images')
+                    .getPublicUrl(filePath)
+
+                uploadedUrls.push({ url: publicUrlData.publicUrl, description: '' })
+            }
+
+            setImages(prev => [...prev, ...uploadedUrls])
+        } catch (err) {
+            console.error(err)
+            setError('Erro ao enviar imagem. Verifique o tamanho ou formato.')
+        } finally {
+            setUploadingImage(false)
+            e.target.value = null
+        }
+    }
+
+    const removeImage = (indexToRemove) => {
+        setImages(images.filter((_, index) => index !== indexToRemove))
+    }
+
+    const handleImageDescriptionChange = (index, value) => {
+        const updated = [...images]
+        updated[index].description = value
+        setImages(updated)
+    }
+
     const handleMicroChange = (index, field, value) => {
         const updated = [...micros]
-        updated[index][field] = value
+        // Auto-format for specific fields that might use superscripts
+        if (['enterobacteria', 'mold_yeast'].includes(field)) {
+            updated[index][field] = formatSuperscript(value)
+        } else {
+            updated[index][field] = value
+        }
         setMicros(updated)
     }
 
     const handleRecoveredChange = (microIndex, recIndex, field, value) => {
         const updated = [...micros]
-        updated[microIndex].recovered[recIndex][field] = value
+        if (field === 'cfu_per_ml') {
+            updated[microIndex].recovered[recIndex][field] = formatSuperscript(value)
+        } else {
+            updated[microIndex].recovered[recIndex][field] = value
+        }
         setMicros(updated)
     }
 
@@ -190,7 +263,7 @@ export default function CreateReport() {
             // 1. Insert header
             const { data: reportData, error: reportError } = await supabase
                 .from('reports')
-                .insert([cleanHeader])
+                .insert([{ ...cleanHeader, images }])
                 .select()
                 .single()
 
@@ -240,6 +313,7 @@ export default function CreateReport() {
                         setHeader({ name: '', client_id: '', property: '', collected_by: '', issue_date: new Date().toISOString().split('T')[0], entry_date: new Date().toISOString().split('T')[0], requester: '', delivered_by: '', collection_date: '', city: '', state: '' })
                         setMicros([{ code: '', name: '', ph: '', recovered: [{ name: '', cfu_per_ml: '' }], enterobacteria: '', mold_yeast: '', commercial_product: '' }])
                         setSelectedClientProperties([])
+                        setImages([])
                     }}>
                         Criar Novo Laudo
                     </button>
@@ -570,7 +644,7 @@ export default function CreateReport() {
                                                     />
                                                 </div>
                                                 <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
-                                                    <label style={{ fontSize: '0.8rem' }}>UFC/mL</label>
+                                                    <label style={{ fontSize: '0.8rem' }}>UFC/mL <span style={{ color: '#888', fontWeight: 400 }}>(Ex: ^4 para ⁴)</span></label>
                                                     <input
                                                         type="text"
                                                         value={rec.cfu_per_ml}
@@ -598,22 +672,22 @@ export default function CreateReport() {
                                     <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary-color)', fontSize: '0.95rem', fontWeight: 600 }}>Indicadores</h4>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                                         <div className="form-group" style={{ marginBottom: 0 }}>
-                                            <label>Enterobactérias</label>
+                                            <label>Enterobactérias <span style={{ color: '#888', fontWeight: 400, fontSize: '0.8rem' }}>(Ex: ^4 para ⁴)</span></label>
                                             <input
                                                 type="text"
                                                 value={micro.enterobacteria}
                                                 onChange={(e) => handleMicroChange(index, 'enterobacteria', e.target.value)}
-                                                placeholder="Ex: Ausência"
+                                                placeholder="Ex: < 10 UFC/g"
                                             />
                                         </div>
 
                                         <div className="form-group" style={{ marginBottom: 0 }}>
-                                            <label>Bolor/Levedura</label>
+                                            <label>Bolor/Levedura <span style={{ color: '#888', fontWeight: 400, fontSize: '0.8rem' }}>(Ex: ^4 para ⁴)</span></label>
                                             <input
                                                 type="text"
                                                 value={micro.mold_yeast}
                                                 onChange={(e) => handleMicroChange(index, 'mold_yeast', e.target.value)}
-                                                placeholder="Ex: < 10 UFC/g"
+                                                placeholder="Ex: 1x10⁴ UFC/g"
                                             />
                                         </div>
                                     </div>
@@ -632,6 +706,77 @@ export default function CreateReport() {
                             </div>
                         ))}
                     </div>
+                </div>
+
+                {/* Anexos Fotográficos */}
+                <div className="card" style={{ marginBottom: '2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <h2 style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <ImageIcon size={20} color="var(--primary-color)" /> Anexos Fotográficos
+                        </h2>
+                        <div>
+                            <input
+                                type="file"
+                                id="photo-upload"
+                                accept="image/*"
+                                multiple
+                                style={{ display: 'none' }}
+                                onChange={handlePhotoUpload}
+                                disabled={uploadingImage}
+                            />
+                            <label
+                                htmlFor="photo-upload"
+                                className="btn btn-secondary"
+                                style={{
+                                    cursor: uploadingImage ? 'not-allowed' : 'pointer',
+                                    padding: '0.5rem 1rem',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    margin: 0
+                                }}
+                            >
+                                {uploadingImage ? (
+                                    <><Loader2 size={16} className="animate-spin" /> Enviando...</>
+                                ) : (
+                                    <><UploadCloud size={16} /> Adicionar Fotos</>
+                                )}
+                            </label>
+                        </div>
+                    </div>
+
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                        As imagens adicionadas aparecerão no final do PDF. Você pode adicionar descrições observações personalizadas para cada foto.
+                    </p>
+
+                    {images.length > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem', marginTop: '1rem', alignItems: 'start' }}>
+                            {images.map((imgObj, idx) => (
+                                <div key={idx} style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
+                                        <img src={imgObj.url} alt={`Anexo ${idx + 1}`} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />
+                                    </div>
+                                    <div style={{ padding: '10px', borderTop: '1px solid #e2e8f0', backgroundColor: '#fff' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Adicionar descrição ou observação... (opcional)"
+                                            value={imgObj.description || ''}
+                                            onChange={(e) => handleImageDescriptionChange(idx, e.target.value)}
+                                            style={{ width: '100%', fontSize: '0.9rem', padding: '0.5rem', border: '1px solid #ccd0d5', borderRadius: '4px' }}
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeImage(idx)}
+                                        style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(255, 255, 255, 0.95)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', zIndex: 20 }}
+                                        title="Remover anexo"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>

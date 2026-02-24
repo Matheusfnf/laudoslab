@@ -321,16 +321,21 @@ export default function ReportView() {
                         <ImageIcon size={20} color="var(--primary-color)" /> Anexos Fotográficos
                     </h2>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
-                        {report.images.map((imgUrl, idx) => (
-                            <div key={idx} style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
-                                <div style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
-                                    <img src={imgUrl} alt={`Anexo ${idx + 1}`} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />
+                        {report.images.map((imgObj, idx) => {
+                            const url = typeof imgObj === 'string' ? imgObj : imgObj.url;
+                            const desc = typeof imgObj === 'string' ? '' : imgObj.description;
+                            return (
+                                <div key={idx} style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
+                                        <img src={url} alt={`Anexo ${idx + 1}`} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />
+                                    </div>
+                                    <div style={{ padding: '8px', textAlign: 'center', backgroundColor: '#e2e8f0', fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>
+                                        Figura {idx + 1}
+                                        {desc && <span style={{ display: 'block', fontWeight: 400, marginTop: '4px', fontStyle: 'italic', fontSize: '0.85rem' }}>{desc}</span>}
+                                    </div>
                                 </div>
-                                <div style={{ padding: '8px', textAlign: 'center', backgroundColor: '#e2e8f0', fontSize: '0.85rem', color: '#475569', fontWeight: 600 }}>
-                                    Figura {idx + 1}
-                                </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 </div>
             )}
