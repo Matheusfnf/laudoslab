@@ -9,6 +9,7 @@ export default function Producao() {
     const [batches, setBatches] = useState([]) // Kanban cards
     const [isLoading, setIsLoading] = useState(true)
 
+    const [selectedOrderId, setSelectedOrderId] = useState(null) // Novo estado para clique no Pedido
     const [expandedOrderId, setExpandedOrderId] = useState(null)
     const [draggedBatch, setDraggedBatch] = useState(null)
     const [draggedOverCol, setDraggedOverCol] = useState(null)
@@ -276,9 +277,20 @@ export default function Producao() {
             </div>
         )
     }
-
     return (
-        <div style={{ animation: 'fadeIn 0.5s ease', paddingBottom: '2rem', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ animation: 'fadeIn 0.5s ease', paddingBottom: '1rem', height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .hide-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+                .hide-scrollbar::-webkit-scrollbar {
+                    display: none;
+                    width: 0px;
+                    background: transparent;
+                }
+            `}} />
             <div className="header-actions" style={{ marginBottom: '1.5rem', flexShrink: 0 }}>
                 <div>
                     <h1 className="title-main">Painel de Produção</h1>
@@ -286,7 +298,7 @@ export default function Producao() {
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '2rem', flex: 1, minHeight: '70vh' }}>
+            <div style={{ display: 'flex', gap: '2rem', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
                 {/* SIDEBAR: PEDIDOS */}
                 <div style={{
@@ -321,24 +333,29 @@ export default function Producao() {
                         </button>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', flex: 1, paddingRight: '0.5rem' }}>
+                    <div className="hide-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', flex: 1, paddingRight: '0.5rem' }}>
                         {orders.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.9rem' }}>Nenhum pedido pendente</div>
                         ) : (
                             orders.map(order => {
                                 const isExpanded = expandedOrderId === order.id;
+                                const isSelected = selectedOrderId === order.id;
                                 const isOrderComplete = order.items.every(i => i.quantityCompleted >= i.quantityRequested)
 
                                 return (
                                     <div key={order.id} style={{
-                                        border: '1px solid #e2e8f0',
+                                        border: isSelected ? '2px solid #0ea5e9' : '1px solid #e2e8f0',
                                         borderRadius: '10px',
                                         overflow: 'hidden',
                                         transition: 'all 0.2s',
-                                        opacity: isOrderComplete ? 0.6 : 1
+                                        opacity: isOrderComplete && !isSelected ? 0.6 : 1,
+                                        boxShadow: isSelected ? '0 4px 12px rgba(14, 165, 233, 0.15)' : 'none'
                                     }}>
                                         <div
-                                            onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                                            onClick={() => {
+                                                setSelectedOrderId(order.id);
+                                                setExpandedOrderId(isExpanded ? null : order.id);
+                                            }}
                                             style={{
                                                 background: isExpanded ? '#f8fafc' : '#fff',
                                                 padding: '1rem',
@@ -413,120 +430,154 @@ export default function Producao() {
                 {/* BOARD: LOTES */}
                 <div style={{
                     display: 'flex',
+                    flexDirection: 'column',
                     gap: '1.5rem',
                     flex: 1,
-                    paddingBottom: '0.5rem'
+                    paddingBottom: '0.5rem',
+                    overflow: 'hidden'
                 }}>
-                    {columns.map(col => {
-                        const colBatches = batches.filter(b => b.status === col.id)
-                        const isOver = draggedOverCol === col.id
-
-                        return (
-                            <div
-                                key={col.id}
-                                onDragOver={(e) => handleDragOver(e, col.id)}
-                                onDragLeave={handleDragLeave}
-                                onDrop={(e) => handleDrop(e, col.id)}
-                                style={{
-                                    flex: 1,
-                                    minWidth: 0, // Permite que a flexbox encolha
-                                    background: col.bg,
-                                    border: isOver ? `2px dashed ${col.color}` : '2px solid transparent',
-                                    borderRadius: '16px',
-                                    padding: '1.25rem',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '1rem',
-                                    transition: 'all 0.2s ease',
-                                    boxShadow: isOver ? `0 0 15px ${col.color}33` : 'none'
-                                }}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', flexShrink: 0 }}>
-                                    <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.1rem', fontWeight: 700, color: '#1a1a1a' }}>
-                                        {col.icon}
-                                        {col.title}
-                                    </h3>
-                                    <span style={{
-                                        background: 'rgba(255,255,255,0.8)',
-                                        padding: '4px 12px',
-                                        borderRadius: '20px',
-                                        fontSize: '0.85rem',
-                                        fontWeight: 700,
-                                        color: col.color,
-                                    }}>
-                                        {colBatches.length}
+                    {!selectedOrderId ? (
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
+                            <Package size={48} color="#cbd5e1" style={{ marginBottom: '1rem' }} />
+                            <h3 style={{ fontSize: '1.2rem', color: '#64748b', fontWeight: 600 }}>Selecione um Pedido</h3>
+                            <p style={{ color: '#94a3b8', fontSize: '0.95rem', marginTop: '0.5rem' }}>Clique em um pedido na lista ao lado para ver e gerenciar os seus Lotes de produção.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Selected Order Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '1rem 1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', flexShrink: 0 }}>
+                                <div>
+                                    <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                                        Pedido Selecionado: #{orders.find(o => o.id === selectedOrderId)?.orderNumber}
+                                    </h2>
+                                    <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.3rem' }}>
+                                        <User size={14} /> Cliente: {orders.find(o => o.id === selectedOrderId)?.client}
                                     </span>
                                 </div>
+                                <button onClick={() => setSelectedOrderId(null)} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                    Limpar Seleção
+                                </button>
+                            </div>
 
-                                <div style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '0.85rem'
-                                }}>
-                                    {colBatches.length === 0 && (
-                                        <div style={{
-                                            padding: '2.5rem 1rem', textAlign: 'center', color: '#8e8e93', fontSize: '0.9rem',
-                                            border: '2px dashed rgba(0,0,0,0.1)', borderRadius: '12px', fontWeight: 500
-                                        }}>
-                                            Nenhum lote nesta etapa
-                                        </div>
-                                    )}
-                                    {colBatches.map(batch => (
+                            <div style={{ display: 'flex', gap: '1.5rem', flex: 1, minHeight: 0 }}>
+                                {columns.map(col => {
+                                    // Filtramos os batches apenas do pedido selecionado
+                                    const colBatches = batches.filter(b => b.status === col.id && b.orderId === selectedOrderId)
+                                    const isOver = draggedOverCol === col.id
+
+                                    return (
                                         <div
-                                            key={batch.id}
-                                            draggable
-                                            onDragStart={(e) => handleDragStart(e, batch)}
-                                            onDragEnd={() => setDraggedBatch(null)}
+                                            key={col.id}
+                                            onDragOver={(e) => handleDragOver(e, col.id)}
+                                            onDragLeave={handleDragLeave}
+                                            onDrop={(e) => handleDrop(e, col.id)}
                                             style={{
-                                                background: '#fff',
-                                                padding: '1.15rem',
-                                                borderRadius: '12px',
-                                                boxShadow: draggedBatch?.id === batch.id ? '0 12px 25px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.03)',
-                                                cursor: 'grab',
+                                                flex: 1,
+                                                minWidth: 0, // Permite que a flexbox encolha
+                                                background: col.bg,
+                                                border: isOver ? `2px dashed ${col.color}` : '2px solid transparent',
+                                                borderRadius: '16px',
+                                                padding: '1.25rem',
                                                 display: 'flex',
                                                 flexDirection: 'column',
-                                                gap: '0.6rem',
-                                                border: '1px solid rgba(0,0,0,0.05)',
-                                                opacity: draggedBatch?.id === batch.id ? 0.4 : 1,
-                                                transform: draggedBatch?.id === batch.id ? 'scale(0.98)' : 'scale(1)',
-                                                transition: 'all 0.2s',
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: isOver ? `0 0 15px ${col.color}33` : 'none',
+                                                height: '100%',
+                                                overflow: 'hidden'
                                             }}
                                         >
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                                                <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
-                                                    {batch.productName}
-                                                </h4>
-                                                <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab' }} />
-                                            </div>
-
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.3rem 0.6rem', borderRadius: '6px', width: 'fit-content' }}>
-                                                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0369a1' }}>Lote: {batch.batchNumber}</span>
-                                                <span style={{ color: '#cbd5e1' }}>|</span>
-                                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0ea5e9' }}>{batch.quantityProduced} {batch.unit}</span>
-                                            </div>
-
-                                            <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.2rem' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                    <span style={{ fontWeight: 600 }}>P. #{batch.orderNumber}</span> - {batch.client}
-                                                </div>
-                                            </div>
-
-                                            {(batch.manufactureDate || batch.expirationDate) && (
-                                                <div style={{
-                                                    display: 'flex', alignItems: 'center', gap: '0.8rem', color: '#94a3b8',
-                                                    fontSize: '0.7rem', marginTop: '0.2rem', paddingTop: '0.5rem', borderTop: '1px solid #f1f5f9'
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexShrink: 0 }}>
+                                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.1rem', fontWeight: 700, color: '#1a1a1a' }}>
+                                                    {col.icon}
+                                                    {col.title}
+                                                </h3>
+                                                <span style={{
+                                                    background: 'rgba(255,255,255,0.8)',
+                                                    padding: '4px 12px',
+                                                    borderRadius: '20px',
+                                                    fontSize: '0.85rem',
+                                                    fontWeight: 700,
+                                                    color: col.color,
                                                 }}>
-                                                    {batch.manufactureDate && <span>Fab: {formatDateForDisplay(batch.manufactureDate)}</span>}
-                                                    {batch.manufactureDate && batch.expirationDate && <span>•</span>}
-                                                    {batch.expirationDate && <span>Val: {formatDateForDisplay(batch.expirationDate)}</span>}
-                                                </div>
-                                            )}
+                                                    {colBatches.length}
+                                                </span>
+                                            </div>
+
+                                            <div className="hide-scrollbar" style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '0.85rem',
+                                                overflowY: 'auto',
+                                                flex: 1,
+                                                paddingRight: '0.5rem'
+                                            }}>
+                                                {colBatches.length === 0 && (
+                                                    <div style={{
+                                                        padding: '2.5rem 1rem', textAlign: 'center', color: '#8e8e93', fontSize: '0.9rem',
+                                                        border: '2px dashed rgba(0,0,0,0.1)', borderRadius: '12px', fontWeight: 500
+                                                    }}>
+                                                        Nenhum lote nesta etapa
+                                                    </div>
+                                                )}
+                                                {colBatches.map(batch => (
+                                                    <div
+                                                        key={batch.id}
+                                                        draggable
+                                                        onDragStart={(e) => handleDragStart(e, batch)}
+                                                        onDragEnd={() => setDraggedBatch(null)}
+                                                        style={{
+                                                            background: '#fff',
+                                                            padding: '1.15rem',
+                                                            borderRadius: '12px',
+                                                            boxShadow: draggedBatch?.id === batch.id ? '0 12px 25px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                                            cursor: 'grab',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: '0.6rem',
+                                                            border: '1px solid rgba(0,0,0,0.05)',
+                                                            opacity: draggedBatch?.id === batch.id ? 0.4 : 1,
+                                                            transform: draggedBatch?.id === batch.id ? 'scale(0.98)' : 'scale(1)',
+                                                            transition: 'all 0.2s',
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                                            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
+                                                                {batch.productName}
+                                                            </h4>
+                                                            <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab' }} />
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.3rem 0.6rem', borderRadius: '6px', width: 'fit-content' }}>
+                                                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0369a1' }}>Lote: {batch.batchNumber}</span>
+                                                            <span style={{ color: '#cbd5e1' }}>|</span>
+                                                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0ea5e9' }}>{batch.quantityProduced} {batch.unit}</span>
+                                                        </div>
+
+                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.2rem' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                                <span style={{ fontWeight: 600 }}>P. #{batch.orderNumber}</span> - {batch.client}
+                                                            </div>
+                                                        </div>
+
+                                                        {(batch.manufactureDate || batch.expirationDate) && (
+                                                            <div style={{
+                                                                display: 'flex', alignItems: 'center', gap: '0.8rem', color: '#94a3b8',
+                                                                fontSize: '0.7rem', marginTop: '0.2rem', paddingTop: '0.5rem', borderTop: '1px solid #f1f5f9'
+                                                            }}>
+                                                                {batch.manufactureDate && <span>Fab: {formatDateForDisplay(batch.manufactureDate)}</span>}
+                                                                {batch.manufactureDate && batch.expirationDate && <span>•</span>}
+                                                                {batch.expirationDate && <span>Val: {formatDateForDisplay(batch.expirationDate)}</span>}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                    ))}
-                                </div>
+                                    )
+                                })}
                             </div>
-                        )
-                    })}
+                        </>
+                    )}
                 </div>
             </div>
 
