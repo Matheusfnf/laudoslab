@@ -9,9 +9,8 @@ export default function Producao() {
     const [batches, setBatches] = useState([]) // Kanban cards
     const [isLoading, setIsLoading] = useState(true)
 
-    const [selectedOrderId, setSelectedOrderId] = useState(null) // Novo estado para clique no Pedido
-    const [expandedOrderId, setExpandedOrderId] = useState(null)
-    const [draggedBatch, setDraggedBatch] = useState(null)
+    const [selectedOrderId, setSelectedOrderId] = useState(null)
+    const [draggedItem, setDraggedItem] = useState(null) // Pode ser um product ou batch
     const [draggedOverCol, setDraggedOverCol] = useState(null)
 
     // Modals state
@@ -128,22 +127,28 @@ export default function Producao() {
     }
 
     const columns = [
-        { id: 'todo', title: 'A Fazer (Lotes)', icon: <ClipboardList size={22} color="#8e8e93" />, color: '#8e8e93', bg: 'rgba(229, 229, 234, 0.4)' },
-        { id: 'in_progress', title: 'Em andamento', icon: <Clock size={22} color="#007aff" />, color: '#007aff', bg: 'rgba(0, 122, 255, 0.1)' },
-        { id: 'done', title: 'Concluídos', icon: <CheckCircle2 size={22} color="#34c759" />, color: '#34c759', bg: 'rgba(52, 199, 89, 0.15)' },
+        { id: 'products', title: 'Produtos (A Fazer)', icon: <ClipboardList size={22} color="#8e8e93" />, color: '#8e8e93', bg: 'rgba(229, 229, 234, 0.4)' },
+        { id: 'in_progress', title: 'Em andamento (Lotes)', icon: <Clock size={22} color="#007aff" />, color: '#007aff', bg: 'rgba(0, 122, 255, 0.1)' },
+        { id: 'done', title: 'Concluídos (Lotes)', icon: <CheckCircle2 size={22} color="#34c759" />, color: '#34c759', bg: 'rgba(52, 199, 89, 0.15)' },
     ]
 
     // Kanban Drag & Drop
-    const handleDragStart = (e, batch) => {
-        setDraggedBatch(batch)
+    const handleDragStart = (e, item, type) => {
+        const dragData = { type, data: item }
+        setDraggedItem(dragData)
         if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move'
-            e.dataTransfer.setData('text/plain', batch.id)
+            e.dataTransfer.setData('application/json', JSON.stringify(dragData))
         }
     }
     const handleDragOver = (e, colId) => {
         e.preventDefault()
         e.dataTransfer.dropEffect = 'move'
+        // Bloqueia arrastar Lote de volta para Produtos
+        if (draggedItem?.type === 'batch' && colId === 'products') return;
+        // Bloqueia arrastar Produto para Concluído direto ou de volta
+        if (draggedItem?.type === 'product' && (colId === 'done' || colId === 'products')) return;
+
         if (draggedOverCol !== colId) setDraggedOverCol(colId)
     }
     const handleDragLeave = (e) => {
@@ -154,28 +159,36 @@ export default function Producao() {
         e.preventDefault()
         setDraggedOverCol(null)
 
-        if (draggedBatch && draggedBatch.status !== colId) {
-            const originalBatches = [...batches]
-            setBatches(batches.map(b => b.id === draggedBatch.id ? { ...b, status: colId } : b))
+        if (!draggedItem) return;
 
-            try {
-                const { error } = await supabase
-                    .from('production_batches')
-                    .update({ status: colId, updated_at: new Date().toISOString() })
-                    .eq('id', draggedBatch.id)
+        if (draggedItem.type === 'product' && colId === 'in_progress') {
+            // Drop de um Produto em "Em Andamento" -> Abre Modal de Lote
+            handleOpenBatchModal(selectedOrderId, draggedItem.data, 'in_progress')
+        }
+        else if (draggedItem.type === 'batch') {
+            const batch = draggedItem.data;
+            if (batch.status !== colId && colId !== 'products') {
+                const originalBatches = [...batches]
+                setBatches(batches.map(b => b.id === batch.id ? { ...b, status: colId } : b))
 
-                if (error) throw error
-                // Reload to recalculate quantities if dropped to 'done'
-                if (colId === 'done' || draggedBatch.status === 'done') {
-                    fetchData()
+                try {
+                    const { error } = await supabase
+                        .from('production_batches')
+                        .update({ status: colId, updated_at: new Date().toISOString() })
+                        .eq('id', batch.id)
+
+                    if (error) throw error
+                    if (colId === 'done' || batch.status === 'done') {
+                        fetchData() // Refresh partial qtys
+                    }
+                } catch (error) {
+                    console.error('Error updating status:', error)
+                    setBatches(originalBatches)
+                    alert('Erro ao mover o lote.')
                 }
-            } catch (error) {
-                console.error('Error updating status:', error)
-                setBatches(originalBatches)
-                alert('Erro ao mover o lote.')
             }
         }
-        setDraggedBatch(null)
+        setDraggedItem(null)
     }
 
     // Modal Orders
@@ -221,7 +234,7 @@ export default function Producao() {
     }
 
     // Modal Batches
-    const handleOpenBatchModal = (orderId, item) => {
+    const handleOpenBatchModal = (orderId, item, initialStatus = 'in_progress') => {
         const remaining = item.quantityRequested - item.quantityProducedTotal
         setNewBatch({
             orderId: orderId,
@@ -231,7 +244,8 @@ export default function Producao() {
             batchNumber: '',
             quantityProduced: remaining > 0 ? remaining : '',
             manufactureDate: '',
-            expirationDate: ''
+            expirationDate: '',
+            status: initialStatus
         })
         setIsBatchModalOpen(true)
     }
@@ -252,7 +266,7 @@ export default function Producao() {
                     quantity_produced: parseFloat(newBatch.quantityProduced),
                     manufacture_date: newBatch.manufactureDate || null,
                     expiration_date: newBatch.expirationDate || null,
-                    status: 'todo'
+                    status: newBatch.status || 'in_progress'
                 }])
             if (error) throw error
 
@@ -338,7 +352,6 @@ export default function Producao() {
                             <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.9rem' }}>Nenhum pedido pendente</div>
                         ) : (
                             orders.map(order => {
-                                const isExpanded = expandedOrderId === order.id;
                                 const isSelected = selectedOrderId === order.id;
                                 const isOrderComplete = order.items.every(i => i.quantityCompleted >= i.quantityRequested)
 
@@ -352,12 +365,9 @@ export default function Producao() {
                                         boxShadow: isSelected ? '0 4px 12px rgba(14, 165, 233, 0.15)' : 'none'
                                     }}>
                                         <div
-                                            onClick={() => {
-                                                setSelectedOrderId(order.id);
-                                                setExpandedOrderId(isExpanded ? null : order.id);
-                                            }}
+                                            onClick={() => setSelectedOrderId(order.id)}
                                             style={{
-                                                background: isExpanded ? '#f8fafc' : '#fff',
+                                                background: isSelected ? '#f0f9ff' : '#fff',
                                                 padding: '1rem',
                                                 cursor: 'pointer',
                                                 display: 'flex', justifyContent: 'space-between', alignItems: 'center'
@@ -372,54 +382,8 @@ export default function Producao() {
                                                     <User size={12} /> {order.client}
                                                 </div>
                                             </div>
-                                            {isExpanded ? <ChevronDown size={18} color="#94a3b8" /> : <ChevronRight size={18} color="#94a3b8" />}
+                                            <ChevronRight size={18} color={isSelected ? '#0ea5e9' : '#94a3b8'} />
                                         </div>
-
-                                        {isExpanded && (
-                                            <div style={{ padding: '0 1rem 1rem 1rem', background: '#f8fafc' }}>
-                                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Produtos:</div>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                                    {order.items.map(item => {
-                                                        const isItemComplete = item.quantityCompleted >= item.quantityRequested
-                                                        return (
-                                                            <div key={item.id} style={{
-                                                                background: '#fff', padding: '0.75rem', borderRadius: '8px',
-                                                                border: '1px solid #e2e8f0', fontSize: '0.85rem'
-                                                            }}>
-                                                                <div style={{ fontWeight: 600, color: '#475569', marginBottom: '0.4rem', display: 'flex', justifyContent: 'space-between' }}>
-                                                                    {item.productName}
-                                                                    {isItemComplete && <CheckCircle2 size={14} color="#10b981" />}
-                                                                </div>
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                                                                        <span style={{ color: isItemComplete ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
-                                                                            {item.quantityCompleted}
-                                                                        </span> / {item.quantityRequested} {item.unit} concluídos
-                                                                    </div>
-                                                                    {!isItemComplete && (
-                                                                        <button
-                                                                            onClick={(e) => { e.stopPropagation(); handleOpenBatchModal(order.id, item) }}
-                                                                            style={{
-                                                                                background: '#e0f2fe', color: '#0284c7', border: 'none',
-                                                                                padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem',
-                                                                                fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem'
-                                                                            }}
-                                                                        >
-                                                                            <Package size={12} /> + Lote
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                                {item.quantityProducedTotal > item.quantityCompleted && item.quantityProducedTotal > 0 && (
-                                                                    <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.3rem' }}>
-                                                                        ({item.quantityProducedTotal - item.quantityCompleted} {item.unit} em produçao)
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 )
                             })
@@ -461,9 +425,13 @@ export default function Producao() {
 
                             <div style={{ display: 'flex', gap: '1.5rem', flex: 1, minHeight: 0 }}>
                                 {columns.map(col => {
+                                    const currentOrder = orders.find(o => o.id === selectedOrderId)
                                     // Filtramos os batches apenas do pedido selecionado
                                     const colBatches = batches.filter(b => b.status === col.id && b.orderId === selectedOrderId)
+                                    const productsItems = currentOrder?.items || []
                                     const isOver = draggedOverCol === col.id
+
+                                    const itemCount = col.id === 'products' ? productsItems.length : colBatches.length
 
                                     return (
                                         <div
@@ -499,7 +467,7 @@ export default function Producao() {
                                                     fontWeight: 700,
                                                     color: col.color,
                                                 }}>
-                                                    {colBatches.length}
+                                                    {itemCount}
                                                 </span>
                                             </div>
 
@@ -511,66 +479,118 @@ export default function Producao() {
                                                 flex: 1,
                                                 paddingRight: '0.5rem'
                                             }}>
-                                                {colBatches.length === 0 && (
+                                                {itemCount === 0 && (
                                                     <div style={{
                                                         padding: '2.5rem 1rem', textAlign: 'center', color: '#8e8e93', fontSize: '0.9rem',
                                                         border: '2px dashed rgba(0,0,0,0.1)', borderRadius: '12px', fontWeight: 500
                                                     }}>
-                                                        Nenhum lote nesta etapa
+                                                        Vazio nesta etapa
                                                     </div>
                                                 )}
-                                                {colBatches.map(batch => (
-                                                    <div
-                                                        key={batch.id}
-                                                        draggable
-                                                        onDragStart={(e) => handleDragStart(e, batch)}
-                                                        onDragEnd={() => setDraggedBatch(null)}
-                                                        style={{
-                                                            background: '#fff',
-                                                            padding: '1.15rem',
-                                                            borderRadius: '12px',
-                                                            boxShadow: draggedBatch?.id === batch.id ? '0 12px 25px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.03)',
-                                                            cursor: 'grab',
-                                                            display: 'flex',
-                                                            flexDirection: 'column',
-                                                            gap: '0.6rem',
-                                                            border: '1px solid rgba(0,0,0,0.05)',
-                                                            opacity: draggedBatch?.id === batch.id ? 0.4 : 1,
-                                                            transform: draggedBatch?.id === batch.id ? 'scale(0.98)' : 'scale(1)',
-                                                            transition: 'all 0.2s',
-                                                        }}
-                                                    >
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                                                            <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
-                                                                {batch.productName}
-                                                            </h4>
-                                                            <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab' }} />
-                                                        </div>
 
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.3rem 0.6rem', borderRadius: '6px', width: 'fit-content' }}>
-                                                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0369a1' }}>Lote: {batch.batchNumber}</span>
-                                                            <span style={{ color: '#cbd5e1' }}>|</span>
-                                                            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0ea5e9' }}>{batch.quantityProduced} {batch.unit}</span>
-                                                        </div>
+                                                {col.id === 'products' ? (
+                                                    // Renderização dos Produtos do Pedido
+                                                    productsItems.map(item => {
+                                                        const isItemComplete = item.quantityCompleted >= item.quantityRequested
+                                                        const isDragged = draggedItem?.data?.id === item.id && draggedItem?.type === 'product'
 
-                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.2rem' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                                                <span style={{ fontWeight: 600 }}>P. #{batch.orderNumber}</span> - {batch.client}
+                                                        return (
+                                                            <div key={item.id}
+                                                                draggable
+                                                                onDragStart={(e) => handleDragStart(e, item, 'product')}
+                                                                onDragEnd={() => setDraggedItem(null)}
+                                                                style={{
+                                                                    background: '#fff', padding: '1.15rem', borderRadius: '12px',
+                                                                    border: '1px solid rgba(0,0,0,0.05)', fontSize: '0.85rem',
+                                                                    boxShadow: isDragged ? '0 12px 25px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                                                    cursor: 'grab', display: 'flex', flexDirection: 'column', gap: '0.6rem',
+                                                                    opacity: isItemComplete ? 0.6 : (isDragged ? 0.4 : 1),
+                                                                    transform: isDragged ? 'scale(0.98)' : 'scale(1)',
+                                                                    transition: 'all 0.2s',
+                                                                }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                                                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
+                                                                        {item.productName}
+                                                                    </h4>
+                                                                    <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab' }} />
+                                                                </div>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                                                        <span style={{ color: isItemComplete ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+                                                                            {item.quantityCompleted}
+                                                                        </span> / {item.quantityRequested} {item.unit} prontos
+                                                                    </div>
+                                                                    {!isItemComplete && (
+                                                                        <button
+                                                                            onClick={(e) => { e.stopPropagation(); handleOpenBatchModal(selectedOrderId, item) }}
+                                                                            style={{
+                                                                                background: '#f1f5f9', color: '#64748b', border: 'none',
+                                                                                padding: '0.3rem 0.6rem', borderRadius: '6px', fontSize: '0.75rem',
+                                                                                fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem',
+                                                                                transition: 'background 0.2s',
+                                                                            }}
+                                                                            onMouseOver={e => e.currentTarget.style.background = '#e2e8f0'}
+                                                                            onMouseOut={e => e.currentTarget.style.background = '#f1f5f9'}
+                                                                        >
+                                                                            <Package size={12} /> + Lote
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                                {item.quantityProducedTotal > item.quantityCompleted && item.quantityProducedTotal > 0 && (
+                                                                    <div style={{ fontSize: '0.7rem', color: '#0ea5e9', marginTop: '0.1rem', fontWeight: 600 }}>
+                                                                        (+ {item.quantityProducedTotal - item.quantityCompleted} {item.unit} em produçao)
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                        </div>
+                                                        )
+                                                    })
+                                                ) : (
+                                                    // Renderização dos Lotes Padrões
+                                                    colBatches.map(batch => {
+                                                        const isDragged = draggedItem?.data?.id === batch.id && draggedItem?.type === 'batch'
 
-                                                        {(batch.manufactureDate || batch.expirationDate) && (
-                                                            <div style={{
-                                                                display: 'flex', alignItems: 'center', gap: '0.8rem', color: '#94a3b8',
-                                                                fontSize: '0.7rem', marginTop: '0.2rem', paddingTop: '0.5rem', borderTop: '1px solid #f1f5f9'
-                                                            }}>
-                                                                {batch.manufactureDate && <span>Fab: {formatDateForDisplay(batch.manufactureDate)}</span>}
-                                                                {batch.manufactureDate && batch.expirationDate && <span>•</span>}
-                                                                {batch.expirationDate && <span>Val: {formatDateForDisplay(batch.expirationDate)}</span>}
+                                                        return (
+                                                            <div
+                                                                key={batch.id}
+                                                                draggable
+                                                                onDragStart={(e) => handleDragStart(e, batch, 'batch')}
+                                                                onDragEnd={() => setDraggedItem(null)}
+                                                                style={{
+                                                                    background: '#fff',
+                                                                    padding: '1.15rem',
+                                                                    borderRadius: '12px',
+                                                                    boxShadow: isDragged ? '0 12px 25px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.03)',
+                                                                    cursor: 'grab',
+                                                                    display: 'flex',
+                                                                    flexDirection: 'column',
+                                                                    gap: '0.6rem',
+                                                                    border: '1px solid rgba(0,0,0,0.05)',
+                                                                    opacity: isDragged ? 0.4 : 1,
+                                                                    transform: isDragged ? 'scale(0.98)' : 'scale(1)',
+                                                                    transition: 'all 0.2s',
+                                                                }}
+                                                            >
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                                                                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
+                                                                        {batch.productName}
+                                                                    </h4>
+                                                                    <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab' }} />
+                                                                </div>
+
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.3rem 0.6rem', borderRadius: '6px', width: 'fit-content' }}>
+                                                                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#0369a1' }}>Lote: {batch.batchNumber}</span>
+                                                                    <span style={{ color: '#cbd5e1' }}>|</span>
+                                                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0ea5e9' }}>{batch.quantityProduced} {batch.unit}</span>
+                                                                </div>
+
+                                                                <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.2rem' }}>
+                                                                    {batch.manufactureDate && <div><strong>Fab:</strong> {formatDateForDisplay(batch.manufactureDate)}</div>}
+                                                                    {batch.expirationDate && <div><strong>Val:</strong> {formatDateForDisplay(batch.expirationDate)}</div>}
+                                                                </div>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                ))}
+                                                        )
+                                                    })
+                                                )}
                                             </div>
                                         </div>
                                     )
