@@ -3,7 +3,7 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Link from 'next/link'
-import { Microscope, FileText, PlusCircle } from 'lucide-react'
+import { Microscope, FileText, Factory } from 'lucide-react'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -22,10 +22,10 @@ export default function RootLayout({ children }) {
           </Link>
           <div className="nav-links">
             <Link href="/" className="nav-link" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FileText size={18} /> Laudos Concluídos
+              <FileText size={18} /> Laudos
             </Link>
-            <Link href="/create" className="btn btn-primary" style={{ padding: '0.6rem 1.25rem', fontSize: '0.9rem' }}>
-              <PlusCircle size={18} /> Criar Laudo
+            <Link href="/producao" className="nav-link" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Factory size={18} /> Produção
             </Link>
           </div>
         </nav>
