@@ -30,7 +30,7 @@ export default function ImageEditorModal({ isOpen, imageFile, onClose, onSave })
         const { width, height } = e.currentTarget
         if (width && height) {
             const initialCrop = centerCrop(
-                makeAspectCrop({ unit: '%', width: 90 }, 1, width, height),
+                makeAspectCrop({ unit: '%', width: 90 }, undefined, width, height),
                 width,
                 height
             )

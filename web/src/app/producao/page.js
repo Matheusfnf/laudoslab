@@ -1,10 +1,12 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, Edit2 } from 'lucide-react'
+import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, Edit2, ScrollText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
 export default function Producao() {
+    const router = useRouter()
     const [orders, setOrders] = useState([])
     const [batches, setBatches] = useState([]) // Kanban cards
     const [isLoading, setIsLoading] = useState(true)
@@ -752,8 +754,9 @@ export default function Producao() {
                                                                         {batch.productName}
                                                                     </h4>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                                        <button onClick={() => handleEditBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit2 size={14} /></button>
-                                                                        <button onClick={() => handleDeleteBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '2px' }}><Trash2 size={14} /></button>
+                                                                        <button onClick={(e) => { e.stopPropagation(); router.push(`/producao/certificado/${batch.id}`) }} style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }} title="Emitir Certificado"><ScrollText size={15} /></button>
+                                                                        <button onClick={() => handleEditBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }} title="Editar Lote"><Edit2 size={14} /></button>
+                                                                        <button onClick={() => handleDeleteBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '2px' }} title="Excluir Lote"><Trash2 size={14} /></button>
                                                                         <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab', marginLeft: '4px' }} />
                                                                     </div>
                                                                 </div>
