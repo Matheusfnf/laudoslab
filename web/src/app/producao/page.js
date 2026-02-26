@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight } from 'lucide-react'
+import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, Edit2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 export default function Producao() {
@@ -12,6 +12,10 @@ export default function Producao() {
     const [selectedOrderId, setSelectedOrderId] = useState(null)
     const [draggedItem, setDraggedItem] = useState(null) // Pode ser um product ou batch
     const [draggedOverCol, setDraggedOverCol] = useState(null)
+
+    // Editing State
+    const [editingOrderId, setEditingOrderId] = useState(null)
+    const [editingBatchId, setEditingBatchId] = useState(null)
 
     // Modals state
     const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
@@ -191,6 +195,48 @@ export default function Producao() {
         setDraggedItem(null)
     }
 
+    // Ações de Pedido (Editar e Excluir)
+    const handleEditOrder = () => {
+        const orderToEdit = orders.find(o => o.id === selectedOrderId)
+        if (!orderToEdit) return;
+
+        setNewOrder({
+            orderNumber: orderToEdit.orderNumber,
+            client: orderToEdit.client,
+            items: orderToEdit.items.map(i => ({
+                id: i.id, // Original ID
+                productName: i.productName,
+                quantity: i.quantityRequested.toString(),
+                unit: i.unit
+            }))
+        })
+        setEditingOrderId(orderToEdit.id)
+        setIsOrderModalOpen(true)
+    }
+
+    const handleDeleteOrder = async () => {
+        const orderToDelete = orders.find(o => o.id === selectedOrderId)
+        if (!orderToDelete) return;
+
+        const confirmDelete = window.confirm(`ATENÇÃO: Você está prestes a excluir o pedido #${orderToDelete.orderNumber}.\\nEsta ação também apagará TODOS os lotes de produção vinculados a este pedido.\\n\\nDeseja realmente continuar?`)
+        if (!confirmDelete) return;
+
+        try {
+            const { error } = await supabase
+                .from('production_orders')
+                .delete()
+                .eq('id', orderToDelete.id)
+
+            if (error) throw error
+
+            setSelectedOrderId(null)
+            await fetchData()
+        } catch (error) {
+            console.error('Erro ao deletar pedido:', error)
+            alert('Não foi possível excluir o pedido.')
+        }
+    }
+
     // Modal Orders
     const handleAddOrderItem = () => {
         if (!currentItem.productName || !currentItem.quantity) return;
@@ -209,27 +255,86 @@ export default function Producao() {
             return;
         }
         try {
-            const { data: orderData, error: orderError } = await supabase
-                .from('production_orders')
-                .insert([{ order_number: newOrder.orderNumber, client: newOrder.client, status: 'pending' }])
-                .select().single()
-            if (orderError) throw orderError
+            if (editingOrderId) {
+                // UPDATE
+                const { error: updateError } = await supabase
+                    .from('production_orders')
+                    .update({ order_number: newOrder.orderNumber, client: newOrder.client })
+                    .eq('id', editingOrderId)
 
-            const itemsToInsert = newOrder.items.map(item => ({
-                order_id: orderData.id,
-                product_name: item.productName,
-                quantity_requested: parseFloat(item.quantity),
-                unit: item.unit
-            }))
+                if (updateError) throw updateError
 
-            const { error: itemsError } = await supabase.from('production_order_items').insert(itemsToInsert)
-            if (itemsError) throw itemsError
+                // Process Items: Get current ones to find what to delete
+                const currentOrder = orders.find(o => o.id === editingOrderId)
+                const oldItemIds = currentOrder ? currentOrder.items.map(i => i.id) : []
+                const newItemIds = newOrder.items.filter(i => !i.id.startsWith('temp_')).map(i => i.id)
+
+                // Excluir os itens removidos
+                const itemsToDelete = oldItemIds.filter(id => !newItemIds.includes(id))
+                if (itemsToDelete.length > 0) {
+                    const { error: deleteItemsError } = await supabase
+                        .from('production_order_items')
+                        .delete()
+                        .in('id', itemsToDelete)
+                    if (deleteItemsError) throw deleteItemsError
+                }
+
+                // Separar em novos e existentes para insert/update
+                const itemsToInsert = []
+
+                for (const item of newOrder.items) {
+                    if (item.id.startsWith('temp_')) {
+                        itemsToInsert.push({
+                            order_id: editingOrderId,
+                            product_name: item.productName,
+                            quantity_requested: parseFloat(item.quantity),
+                            unit: item.unit
+                        })
+                    } else {
+                        // Atualizar item existente (pode ter mudado nome ou qty)
+                        const { error: updateItemError } = await supabase
+                            .from('production_order_items')
+                            .update({
+                                product_name: item.productName,
+                                quantity_requested: parseFloat(item.quantity),
+                                unit: item.unit
+                            })
+                            .eq('id', item.id)
+
+                        if (updateItemError) throw updateItemError
+                    }
+                }
+
+                if (itemsToInsert.length > 0) {
+                    const { error: insertItemsError } = await supabase.from('production_order_items').insert(itemsToInsert)
+                    if (insertItemsError) throw insertItemsError
+                }
+
+            } else {
+                // INSERT NOVO PEDIDO
+                const { data: orderData, error: orderError } = await supabase
+                    .from('production_orders')
+                    .insert([{ order_number: newOrder.orderNumber, client: newOrder.client, status: 'pending' }])
+                    .select().single()
+                if (orderError) throw orderError
+
+                const itemsToInsert = newOrder.items.map(item => ({
+                    order_id: orderData.id,
+                    product_name: item.productName,
+                    quantity_requested: parseFloat(item.quantity),
+                    unit: item.unit
+                }))
+
+                const { error: itemsError } = await supabase.from('production_order_items').insert(itemsToInsert)
+                if (itemsError) throw itemsError
+            }
 
             await fetchData()
             setIsOrderModalOpen(false)
+            setEditingOrderId(null) // Reset
         } catch (error) {
             console.error(error)
-            alert('Erro ao criar pedido.')
+            alert('Erro ao salvar pedido.')
         }
     }
 
@@ -247,7 +352,43 @@ export default function Producao() {
             expirationDate: '',
             status: initialStatus
         })
+        setEditingBatchId(null)
         setIsBatchModalOpen(true)
+    }
+
+    const handleEditBatch = (batch) => {
+        setNewBatch({
+            orderId: batch.orderId,
+            itemId: batch.itemId,
+            productName: batch.productName,
+            unit: batch.unit,
+            batchNumber: batch.batchNumber,
+            quantityProduced: batch.quantityProduced,
+            manufactureDate: batch.manufactureDate || '',
+            expirationDate: batch.expirationDate || '',
+            status: batch.status
+        })
+        setEditingBatchId(batch.id)
+        setIsBatchModalOpen(true)
+    }
+
+    const handleDeleteBatch = async (batch) => {
+        const confirmDelete = window.confirm(`ATENÇÃO: Você está prestes a excluir o lote ${batch.batchNumber} (${batch.quantityProduced} ${batch.unit}).\\nA quantidade devolvida voltará a ficar "Pendente".\\nDeseja continuar?`)
+        if (!confirmDelete) return;
+
+        try {
+            const { error } = await supabase
+                .from('production_batches')
+                .delete()
+                .eq('id', batch.id)
+
+            if (error) throw error
+
+            await fetchData()
+        } catch (error) {
+            console.error('Erro ao deletar lote:', error)
+            alert('Não foi possível excluir o lote.')
+        }
     }
 
     const handleSaveBatch = async () => {
@@ -256,25 +397,41 @@ export default function Producao() {
             return;
         }
         try {
-            // Create new batch
-            const { error } = await supabase
-                .from('production_batches')
-                .insert([{
-                    order_id: newBatch.orderId,
-                    item_id: newBatch.itemId,
-                    batch_number: newBatch.batchNumber,
-                    quantity_produced: parseFloat(newBatch.quantityProduced),
-                    manufacture_date: newBatch.manufactureDate || null,
-                    expiration_date: newBatch.expirationDate || null,
-                    status: newBatch.status || 'in_progress'
-                }])
-            if (error) throw error
+            if (editingBatchId) {
+                // UPDATE
+                const { error } = await supabase
+                    .from('production_batches')
+                    .update({
+                        batch_number: newBatch.batchNumber,
+                        quantity_produced: parseFloat(newBatch.quantityProduced),
+                        manufacture_date: newBatch.manufactureDate || null,
+                        expiration_date: newBatch.expirationDate || null
+                    })
+                    .eq('id', editingBatchId)
+
+                if (error) throw error
+            } else {
+                // CREATE new batch
+                const { error } = await supabase
+                    .from('production_batches')
+                    .insert([{
+                        order_id: newBatch.orderId,
+                        item_id: newBatch.itemId,
+                        batch_number: newBatch.batchNumber,
+                        quantity_produced: parseFloat(newBatch.quantityProduced),
+                        manufacture_date: newBatch.manufactureDate || null,
+                        expiration_date: newBatch.expirationDate || null,
+                        status: newBatch.status || 'in_progress'
+                    }])
+                if (error) throw error
+            }
 
             await fetchData()
             setIsBatchModalOpen(false)
+            setEditingBatchId(null)
         } catch (error) {
             console.error(error)
-            alert('Erro ao gerar lote.')
+            alert('Erro ao salvar lote.')
         }
     }
 
@@ -292,7 +449,7 @@ export default function Producao() {
         )
     }
     return (
-        <div style={{ animation: 'fadeIn 0.5s ease', paddingBottom: '1rem', height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ animation: 'fadeIn 0.5s ease', paddingBottom: '0.5rem', height: 'calc(100vh - 135px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <style dangerouslySetInnerHTML={{
                 __html: `
                 .hide-scrollbar {
@@ -332,6 +489,7 @@ export default function Producao() {
                         <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Pedidos</h2>
                         <button
                             onClick={() => {
+                                setEditingOrderId(null)
                                 setNewOrder({ orderNumber: '', client: '', items: [] })
                                 setCurrentItem({ productName: '', quantity: '', unit: 'UN' })
                                 setIsOrderModalOpen(true)
@@ -418,9 +576,28 @@ export default function Producao() {
                                         <User size={14} /> Cliente: {orders.find(o => o.id === selectedOrderId)?.client}
                                     </span>
                                 </div>
-                                <button onClick={() => setSelectedOrderId(null)} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
-                                    Limpar Seleção
-                                </button>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                    <button
+                                        onClick={handleEditOrder}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '0.5rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                                        onMouseOver={e => { e.currentTarget.style.color = '#0ea5e9'; e.currentTarget.style.borderColor = '#0ea5e9' }}
+                                        onMouseOut={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                                    >
+                                        <Edit2 size={14} /> Editar
+                                    </button>
+                                    <button
+                                        onClick={handleDeleteOrder}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'transparent', color: '#ef4444', border: '1px solid #fca5a5', padding: '0.5rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                                        onMouseOver={e => { e.currentTarget.style.background = '#fef2f2' }}
+                                        onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+                                    >
+                                        <Trash2 size={14} /> Excluir
+                                    </button>
+                                    <div style={{ width: '1px', height: '24px', background: '#e2e8f0', margin: '0 0.5rem' }}></div>
+                                    <button onClick={() => setSelectedOrderId(null)} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                        Limpar Seleção
+                                    </button>
+                                </div>
                             </div>
 
                             <div style={{ display: 'flex', gap: '1.5rem', flex: 1, minHeight: 0 }}>
@@ -574,7 +751,11 @@ export default function Producao() {
                                                                     <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
                                                                         {batch.productName}
                                                                     </h4>
-                                                                    <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab' }} />
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                                        <button onClick={() => handleEditBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }}><Edit2 size={14} /></button>
+                                                                        <button onClick={() => handleDeleteBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '2px' }}><Trash2 size={14} /></button>
+                                                                        <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab', marginLeft: '4px' }} />
+                                                                    </div>
                                                                 </div>
 
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f1f5f9', padding: '0.3rem 0.6rem', borderRadius: '6px', width: 'fit-content' }}>
@@ -605,11 +786,13 @@ export default function Producao() {
             {isOrderModalOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
                     <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', position: 'relative' }}>
-                        <button onClick={() => setIsOrderModalOpen(false)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8e8e93', padding: '0.5rem' }}>
+                        <button onClick={() => { setIsOrderModalOpen(false); setEditingOrderId(null) }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8e8e93', padding: '0.5rem' }}>
                             <X size={20} />
                         </button>
 
-                        <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700 }}>Cadastrar Novo Pedido</h2>
+                        <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700 }}>
+                            {editingOrderId ? 'Editar Pedido' : 'Cadastrar Novo Pedido'}
+                        </h2>
 
                         <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
                             <div style={{ flex: 1 }}>
@@ -644,8 +827,10 @@ export default function Producao() {
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-                            <button className="btn btn-secondary" onClick={() => setIsOrderModalOpen(false)}>Cancelar</button>
-                            <button className="btn btn-primary" onClick={handleSaveOrder}>Cadastrar Pedido</button>
+                            <button className="btn btn-secondary" onClick={() => { setIsOrderModalOpen(false); setEditingOrderId(null) }}>Cancelar</button>
+                            <button className="btn btn-primary" onClick={handleSaveOrder}>
+                                {editingOrderId ? 'Salvar Alterações' : 'Cadastrar Pedido'}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -655,11 +840,13 @@ export default function Producao() {
             {isBatchModalOpen && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
                     <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '500px', padding: '2rem', position: 'relative' }}>
-                        <button onClick={() => setIsBatchModalOpen(false)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8e8e93', padding: '0.5rem' }}>
+                        <button onClick={() => { setIsBatchModalOpen(false); setEditingBatchId(null) }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8e8e93', padding: '0.5rem' }}>
                             <X size={20} />
                         </button>
 
-                        <h2 style={{ marginBottom: '0.5rem', fontSize: '1.3rem', fontWeight: 700 }}>Separar Lote para Produção</h2>
+                        <h2 style={{ marginBottom: '0.5rem', fontSize: '1.3rem', fontWeight: 700 }}>
+                            {editingBatchId ? 'Editar Lote de Produção' : 'Separar Lote para Produção'}
+                        </h2>
                         <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Produto: <strong style={{ color: '#1e293b' }}>{newBatch.productName}</strong></p>
 
                         <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
@@ -682,8 +869,10 @@ export default function Producao() {
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-                            <button className="btn btn-secondary" onClick={() => setIsBatchModalOpen(false)}>Cancelar</button>
-                            <button className="btn btn-primary" onClick={handleSaveBatch}>Gerar Lote no Kanban</button>
+                            <button className="btn btn-secondary" onClick={() => { setIsBatchModalOpen(false); setEditingBatchId(null) }}>Cancelar</button>
+                            <button className="btn btn-primary" onClick={handleSaveBatch}>
+                                {editingBatchId ? 'Salvar Lote' : 'Gerar Lote no Kanban'}
+                            </button>
                         </div>
                     </div>
                 </div>
