@@ -100,8 +100,8 @@ const ReportPDFTemplate = React.forwardRef(({ report, micros }, ref) => {
             </div>
 
             {micros && micros.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <h2 style={{ fontSize: '20px', color: '#1a1a1a', fontWeight: 'bold', margin: '10px 0', paddingLeft: '5px' }}>Apresentação dos Resultados</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    <h2 style={{ fontSize: '18px', color: '#1a1a1a', fontWeight: 'bold', margin: '8px 0', paddingLeft: '5px' }}>Apresentação dos Resultados</h2>
 
                     {micros.map((micro, idx) => {
                         const recoveredList = micro.recovered && micro.recovered.length > 0
@@ -109,61 +109,61 @@ const ReportPDFTemplate = React.forwardRef(({ report, micros }, ref) => {
                             : (micro.name || micro.cfu_per_ml ? [{ name: micro.name, cfu_per_ml: micro.cfu_per_ml }] : []);
 
                         return (
-                            <div key={idx} style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                            <div key={idx} style={{ background: '#fff', borderRadius: '16px', padding: '16px 20px', boxShadow: '0 4px 15px rgba(0,0,0,0.02)', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr 1fr', gap: '15px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #f0f0f0' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 2fr 1fr', gap: '10px', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #f0f0f0' }}>
                                     <div>
-                                        <span style={{ display: 'block', fontSize: '11px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Código</span>
-                                        <strong style={{ fontSize: '16px', color: '#007aff' }}>{micro.code || '-'}</strong>
+                                        <span style={{ display: 'block', fontSize: '10px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Código</span>
+                                        <strong style={{ fontSize: '14px', color: '#007aff' }}>{micro.code || '-'}</strong>
                                     </div>
                                     <div>
-                                        <span style={{ display: 'block', fontSize: '11px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Produto / Microrganismo</span>
-                                        <strong style={{ fontSize: '15px', color: '#1a1a1a' }}>{micro.name || '-'}</strong>
+                                        <span style={{ display: 'block', fontSize: '10px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Produto / Microrganismo</span>
+                                        <strong style={{ fontSize: '13px', color: '#1a1a1a' }}>{micro.name || '-'}</strong>
                                     </div>
                                     <div>
-                                        <span style={{ display: 'block', fontSize: '11px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Produto Comercial</span>
-                                        <strong style={{ fontSize: '15px', color: '#1a1a1a' }}>{micro.commercial_product || '-'}</strong>
+                                        <span style={{ display: 'block', fontSize: '10px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Produto Comercial</span>
+                                        <strong style={{ fontSize: '13px', color: '#1a1a1a' }}>{micro.commercial_product || '-'}</strong>
                                     </div>
                                     <div>
-                                        <span style={{ display: 'block', fontSize: '11px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>pH</span>
-                                        <strong style={{ fontSize: '14px', color: '#1a1a1a', display: 'inline-block', backgroundColor: '#f2f2f7', padding: '4px 14px', borderRadius: '20px' }}>{micro.ph || '-'}</strong>
+                                        <span style={{ display: 'block', fontSize: '10px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>pH</span>
+                                        <strong style={{ fontSize: '13px', color: '#1a1a1a', display: 'inline-block', backgroundColor: '#f2f2f7', padding: '3px 12px', borderRadius: '20px' }}>{micro.ph || '-'}</strong>
                                     </div>
                                 </div>
 
                                 {micro.observations && (
-                                    <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #f0f0f0' }}>
-                                        <span style={{ display: 'block', fontSize: '11px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Observações da amostra</span>
-                                        <p style={{ margin: 0, fontSize: '13px', color: '#444', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{micro.observations}</p>
+                                    <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #f0f0f0' }}>
+                                        <span style={{ display: 'block', fontSize: '10px', color: '#888', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Observações da amostra</span>
+                                        <p style={{ margin: 0, fontSize: '12px', color: '#444', lineHeight: '1.4', whiteSpace: 'pre-wrap' }}>{micro.observations}</p>
                                     </div>
                                 )}
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
 
                                     {/* Recuperados */}
-                                    <div style={{ background: '#fafdfa', borderRadius: '12px', padding: '20px', borderLeft: '4px solid #34c759' }}>
-                                        <h4 style={{ margin: '0 0 16px 0', color: '#2d8a43', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Microrganismos Recuperados</h4>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ background: '#fafdfa', borderRadius: '12px', padding: '12px 16px', borderLeft: '4px solid #34c759' }}>
+                                        <h4 style={{ margin: '0 0 10px 0', color: '#2d8a43', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Microrganismos Recuperados</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {recoveredList.map((rec, rIdx) => (
-                                                <div key={rIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-                                                    <span style={{ fontSize: '14px', color: '#1a1a1a', fontWeight: 500 }}>{rec.name || '-'}</span>
-                                                    <span style={{ fontSize: '13px', backgroundColor: '#e8f7ec', color: '#2d8a43', padding: '4px 12px', borderRadius: '16px', fontWeight: 600 }}>{rec.cfu_per_ml || '-'}</span>
+                                                <div key={rIdx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+                                                    <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: 500 }}>{rec.name || '-'}</span>
+                                                    <span style={{ fontSize: '12px', backgroundColor: '#e8f7ec', color: '#2d8a43', padding: '3px 10px', borderRadius: '16px', fontWeight: 600 }}>{rec.cfu_per_ml || '-'}</span>
                                                 </div>
                                             ))}
-                                            {recoveredList.length === 0 && <span style={{ fontSize: '13px', color: '#888' }}>Nenhum recuperado</span>}
+                                            {recoveredList.length === 0 && <span style={{ fontSize: '12px', color: '#888' }}>Nenhum recuperado</span>}
                                         </div>
                                     </div>
 
                                     {/* Indicadores */}
-                                    <div style={{ background: '#f5f9ff', borderRadius: '12px', padding: '20px', borderLeft: '4px solid #007aff' }}>
-                                        <h4 style={{ margin: '0 0 16px 0', color: '#0056b3', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Indicadores</h4>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
-                                                <span style={{ fontSize: '14px', color: '#666' }}>Enterobactérias</span>
-                                                <span style={{ fontSize: '14px', color: '#1a1a1a', fontWeight: 600 }}>{micro.enterobacteria || '-'}</span>
+                                    <div style={{ background: '#f5f9ff', borderRadius: '12px', padding: '12px 16px', borderLeft: '4px solid #007aff' }}>
+                                        <h4 style={{ margin: '0 0 10px 0', color: '#0056b3', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Indicadores</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '8px', borderBottom: '1px solid rgba(0,0,0,0.03)' }}>
+                                                <span style={{ fontSize: '13px', color: '#666' }}>Enterobactérias</span>
+                                                <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: 600 }}>{micro.enterobacteria || '-'}</span>
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '4px' }}>
-                                                <span style={{ fontSize: '14px', color: '#666' }}>Bolor/Levedura</span>
-                                                <span style={{ fontSize: '14px', color: '#1a1a1a', fontWeight: 600 }}>{micro.mold_yeast || '-'}</span>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '2px' }}>
+                                                <span style={{ fontSize: '13px', color: '#666' }}>Bolor/Levedura</span>
+                                                <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: 600 }}>{micro.mold_yeast || '-'}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -183,7 +183,7 @@ const ReportPDFTemplate = React.forwardRef(({ report, micros }, ref) => {
             )}
 
             {report.images && report.images.length > 0 && (
-                <div style={{ marginTop: '30px', breakBefore: 'page', pageBreakBefore: 'always' }}>
+                <div style={{ marginTop: '30px' }}>
                     <h2 style={{ fontSize: '20px', color: '#1a1a1a', fontWeight: 'bold', margin: '0 0 20px 0', paddingLeft: '5px' }}>Anexos Fotográficos</h2>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
                         {report.images.map((imgObj, idx) => {

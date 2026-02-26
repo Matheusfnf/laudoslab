@@ -104,7 +104,13 @@ export default function CertificadoPage() {
 
                 // Load tables
                 const { data: micros } = await supabase.from('certificate_microorganisms').select('*').eq('certificate_id', existingCert.id).order('name')
-                if (micros && micros.length > 0) setMicroorganisms(micros)
+                if (micros && micros.length > 0) {
+                    const mappedMicros = micros.map(m => ({
+                        ...m,
+                        exponentialValue: m.exponential_value || ''
+                    }))
+                    setMicroorganisms(mappedMicros)
+                }
 
                 const { data: physics } = await supabase.from('certificate_physicochemical').select('*').eq('certificate_id', existingCert.id).order('characteristic')
                 if (physics && physics.length > 0) {
