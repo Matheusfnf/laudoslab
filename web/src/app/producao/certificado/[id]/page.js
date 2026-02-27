@@ -30,6 +30,9 @@ export default function CertificadoPage() {
     const [isSaving, setIsSaving] = useState(false)
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
     const [certificateId, setCertificateId] = useState(null)
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+    const [showUnsavedModal, setShowUnsavedModal] = useState(false)
+    const isDataLoadedRef = useRef(false)
     const pdfRef = useRef(null)
 
     // Modal Image
@@ -68,6 +71,23 @@ export default function CertificadoPage() {
             loadData()
         }
     }, [batchId])
+
+    useEffect(() => {
+        if (isDataLoadedRef.current) {
+            setHasUnsavedChanges(true)
+        }
+    }, [formData, microorganisms, physicochemicals])
+
+    useEffect(() => {
+        const handleBeforeUnload = (e) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault()
+                e.returnValue = ''
+            }
+        }
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    }, [hasUnsavedChanges])
 
     const loadData = async () => {
         try {
@@ -163,10 +183,14 @@ export default function CertificadoPage() {
             alert('Erro ao carregar os dados. Verifique se as novas tabelas foram criadas no banco (run SQL).')
         } finally {
             setIsLoading(false)
+            setTimeout(() => {
+                isDataLoadedRef.current = true
+                setHasUnsavedChanges(false)
+            }, 100)
         }
     }
 
-    const handleSave = async () => {
+    const handleSave = async (silent = false) => {
         try {
             setIsSaving(true)
 
@@ -233,12 +257,20 @@ export default function CertificadoPage() {
                 await supabase.from('certificate_physicochemical').insert(physicPayload)
             }
 
-            alert('Certificado salvo com sucesso!')
+            setHasUnsavedChanges(false)
+            if (silent !== true) {
+                alert('Certificado salvo com sucesso!')
+            }
+            isDataLoadedRef.current = false // Disable temporarily to not trigger dirty state after loadData
             loadData() // Reload to get proper IDs assigned
+            return true
 
         } catch (error) {
             console.error('Error saving certificate:', error)
-            alert('Erro ao salvar o certificado.')
+            if (silent !== true) {
+                alert('Erro ao salvar o certificado.')
+            }
+            return false
         } finally {
             setIsSaving(false)
         }
@@ -256,6 +288,15 @@ export default function CertificadoPage() {
     const updatePhysicochemical = (id, field, value) => {
         setPhysicochemicals(physicochemicals.map(p => p.id === id ? { ...p, [field]: value } : p))
     }
+
+    const handleBackClick = () => {
+        if (hasUnsavedChanges) {
+            setShowUnsavedModal(true)
+        } else {
+            router.push('/producao')
+        }
+    }
+
     const handleGeneratePDF = async () => {
         if (!pdfRef.current) return;
 
@@ -293,7 +334,7 @@ export default function CertificadoPage() {
         <div style={{ animation: 'fadeIn 0.5s ease', paddingBottom: '3rem' }}>
             <div className="header-actions">
                 <div>
-                    <button onClick={() => router.push('/producao')} style={{ background: 'transparent', border: 'none', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', marginBottom: '1rem', fontWeight: 600 }}>
+                    <button onClick={handleBackClick} style={{ background: 'transparent', border: 'none', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer', marginBottom: '1rem', fontWeight: 600 }}>
                         <ArrowLeft size={16} /> Voltar para Produção
                     </button>
                     <h1 className="title-main">Emitir Certificado (CQ)</h1>
@@ -474,6 +515,47 @@ export default function CertificadoPage() {
                     physics={physicochemicals}
                 />
             </div>
+
+            {/* Modal de Confirmação de Saída */}
+            {showUnsavedModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, animation: 'fadeIn 0.2s ease' }}>
+                    <div className="card" style={{ padding: '2rem', maxWidth: '400px', width: '90%', textAlign: 'center', animation: 'slideUp 0.3s ease' }}>
+                        <h2 style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#1e293b' }}>Alterações não salvas</h2>
+                        <p style={{ color: '#64748b', marginBottom: '2rem', fontSize: '0.95rem' }}>
+                            Você possui alterações no certificado que ainda não foram salvas. O que deseja fazer?
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                            <button
+                                className="btn btn-primary"
+                                onClick={async () => {
+                                    const success = await handleSave(true)
+                                    if (success) {
+                                        router.push('/producao')
+                                    }
+                                }}
+                                disabled={isSaving}
+                            >
+                                <Save size={18} /> {isSaving ? 'Salvando...' : 'Salvar e Sair'}
+                            </button>
+                            <button
+                                className="btn btn-secondary"
+                                style={{ color: '#ef4444', borderColor: '#fca5a5', background: '#fef2f2' }}
+                                onClick={() => router.push('/producao')}
+                                disabled={isSaving}
+                            >
+                                Sair sem salvar
+                            </button>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => setShowUnsavedModal(false)}
+                                disabled={isSaving}
+                            >
+                                Continuar editando
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
