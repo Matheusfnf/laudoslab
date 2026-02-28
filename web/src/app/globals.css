@@ -40,8 +40,7 @@
 body {
   font-family: var(--font-family);
   color: var(--text-main);
-  background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid) 40%, var(--bg-gradient-end) 70%, var(--bg-gradient-bottom));
-  background-attachment: fixed;
+  background: #f8fafc;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -59,14 +58,19 @@ body {
   align-items: center;
   position: sticky;
 
-/* Utility classes */
-.hide-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
-.hide-scrollbar::-webkit-scrollbar {
-  display: none; /* Chrome, Safari and Opera */
-}
+  /* Utility classes */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari and Opera */
+  }
+
   top: 0;
   z-index: 100;
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
