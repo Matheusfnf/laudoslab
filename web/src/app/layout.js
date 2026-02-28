@@ -3,13 +3,31 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Link from 'next/link'
-import { Microscope, FileText, Factory } from 'lucide-react'
+import { Microscope, FileText, Factory, LogOut } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import LoginScreen from '@/components/LoginScreen'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({ children }) {
   const pathname = usePathname()
+  const [user, setUser] = useState(null)
+  const [isAuthChecking, setIsAuthChecking] = useState(true)
+
+  useEffect(() => {
+    // Check for saved user session on mount
+    const savedUser = localStorage.getItem('proativa_auth_user')
+    if (savedUser) {
+      setUser(JSON.parse(savedUser))
+    }
+    setIsAuthChecking(false)
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('proativa_auth_user')
+    setUser(null)
+  }
 
   // Function to determine if a route is active and apply specific styles
   const getLinkStyle = (path) => {
@@ -39,28 +57,66 @@ export default function RootLayout({ children }) {
         <title>Proativa Lab - Laudos</title>
       </head>
       <body className={inter.className}>
-        {/* Navigation Bar */}
-        <nav className="navbar">
-          <Link href="/" className="nav-brand">
-            <Microscope size={28} />
-            <span>Proativa Lab</span>
-          </Link>
-          <div className="nav-links" style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
-            <Link href="/" className="nav-link" style={getLinkStyle('/')}>
-              <FileText size={18} /> Laudos
-            </Link>
-            <Link href="/producao" className="nav-link" style={getLinkStyle('/producao')}>
-              <Factory size={18} /> Produção
-            </Link>
+        {isAuthChecking ? (
+          <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
+            <p style={{ color: 'var(--primary-color)', fontWeight: 600 }}>Carregando...</p>
           </div>
-        </nav>
+        ) : !user ? (
+          <LoginScreen onLogin={(userData) => setUser(userData)} />
+        ) : (
+          <>
+            {/* Navigation Bar */}
+            <nav className="navbar">
+              <Link href="/" className="nav-brand">
+                <Microscope size={28} />
+                <span>Proativa Lab</span>
+              </Link>
+              <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
+                <div className="nav-links" style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+                  <Link href="/" className="nav-link" style={getLinkStyle('/')}>
+                    <FileText size={18} /> Laudos
+                  </Link>
+                  <Link href="/producao" className="nav-link" style={getLinkStyle('/producao')}>
+                    <Factory size={18} /> Produção
+                  </Link>
+                </div>
+              </div>
 
-        {/* Main Content Area */}
-        <div className="main-wrapper">
-          <div className="container">
-            <main>{children}</main>
-          </div>
-        </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 500 }}>
+                  Olá, <strong style={{ color: '#0f172a' }}>{user.name}</strong>
+                </span>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid #e2e8f0',
+                    padding: '0.4rem 0.8rem',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    color: '#64748b',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#ef4444'; e.currentTarget.style.background = '#fef2f2' }}
+                  onMouseOut={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = 'transparent' }}
+                >
+                  <LogOut size={16} /> Sair
+                </button>
+              </div>
+            </nav>
+
+            {/* Main Content Area */}
+            <div className="main-wrapper">
+              <div className="container">
+                <main>{children}</main>
+              </div>
+            </div>
+          </>
+        )}
       </body>
     </html>
   )
