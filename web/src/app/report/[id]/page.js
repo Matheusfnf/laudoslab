@@ -68,7 +68,7 @@ export default function ReportView() {
             if (error) throw error
 
             alert('Laudo excluído com sucesso!')
-            router.push('/')
+            router.push('/laudos')
         } catch (err) {
             console.error(err)
             alert('Erro ao excluir laudo.')
@@ -111,7 +111,7 @@ export default function ReportView() {
         return (
             <div style={{ textAlign: 'center', padding: '5rem' }}>
                 <h2>Laudo não encontrado</h2>
-                <Link href="/">
+                <Link href="/laudos">
                     <button className="btn btn-secondary" style={{ marginTop: '1rem' }}>Voltar ao Início</button>
                 </Link>
             </div>
@@ -122,7 +122,7 @@ export default function ReportView() {
         <div style={{ paddingBottom: '3rem', maxWidth: '900px', margin: '0 auto' }}>
             <div className="header-actions">
                 <div>
-                    <button className="btn btn-secondary" onClick={() => router.push('/')} style={{ padding: '0.5rem 1rem', marginBottom: '1.5rem' }}>
+                    <button className="btn btn-secondary" onClick={() => router.push('/laudos')} style={{ padding: '0.5rem 1rem', marginBottom: '1.5rem' }}>
                         <ArrowLeft size={16} /> Voltar
                     </button>
                     <h1 className="title-main">{report.name}</h1>

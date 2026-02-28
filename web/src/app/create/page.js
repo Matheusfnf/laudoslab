@@ -319,7 +319,7 @@ export default function CreateReport() {
                     }}>
                         Criar Novo Laudo
                     </button>
-                    <button className="btn btn-primary" onClick={() => router.push('/')}>
+                    <button className="btn btn-primary" onClick={() => router.push('/laudos')}>
                         Voltar ao Início
                     </button>
                 </div>
@@ -361,7 +361,7 @@ export default function CreateReport() {
             )}
 
             <div className="header-actions">
-                <Link href="/" passHref>
+                <Link href="/laudos" passHref>
                     <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem' }}>
                         <ArrowLeft size={16} /> Voltar
                     </button>

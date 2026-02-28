@@ -151,7 +151,7 @@ export default function Clients() {
                         <p className="title-sub">Gerencie clientes cadastrados e suas fazendas.</p>
                     </div>
                     <div style={{ display: 'flex', gap: '1rem' }}>
-                        <Link href="/" passHref>
+                        <Link href="/laudos" passHref>
                             <button className="btn btn-secondary">
                                 <Home size={18} /> Início
                             </button>

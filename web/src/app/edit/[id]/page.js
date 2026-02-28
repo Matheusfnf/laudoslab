@@ -347,7 +347,7 @@ export default function EditReport() {
                     <button className="btn btn-primary" onClick={() => router.push(`/report/${id}`)}>
                         Visualizar Laudo Atualizado
                     </button>
-                    <button className="btn btn-secondary" onClick={() => router.push('/')}>
+                    <button className="btn btn-secondary" onClick={() => router.push('/laudos')}>
                         Voltar ao Início
                     </button>
                 </div>
