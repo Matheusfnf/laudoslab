@@ -3,7 +3,7 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Link from 'next/link'
-import { Microscope, FileText, Factory, LogOut } from 'lucide-react'
+import { Microscope, FileText, Factory, LogOut, Home } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import LoginScreen from '@/components/LoginScreen'
@@ -31,10 +31,16 @@ export default function RootLayout({ children }) {
 
   // Function to determine if a route is active and apply specific styles
   const getLinkStyle = (path) => {
-    // Para Home ('/'), vamos considerar ativo se estiver em qualquer lugar senão em /producao
-    const isActive = path === '/'
-      ? (pathname === '/' || pathname?.startsWith('/report') || pathname?.startsWith('/edit') || pathname?.startsWith('/create'))
-      : pathname === path;
+    // Home is exact match. '/laudos' is active for itself and /create, /edit, /report, /clients
+    let isActive = false;
+
+    if (path === '/') {
+      isActive = pathname === '/';
+    } else if (path === '/laudos') {
+      isActive = pathname === '/laudos' || pathname?.startsWith('/report') || pathname?.startsWith('/edit') || pathname?.startsWith('/create') || pathname?.startsWith('/clients');
+    } else {
+      isActive = pathname === path || pathname?.startsWith(path);
+    }
 
     return {
       display: 'flex',
@@ -74,6 +80,9 @@ export default function RootLayout({ children }) {
               <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
                 <div className="nav-links" style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
                   <Link href="/" className="nav-link" style={getLinkStyle('/')}>
+                    <Home size={18} /> Início
+                  </Link>
+                  <Link href="/laudos" className="nav-link" style={getLinkStyle('/laudos')}>
                     <FileText size={18} /> Laudos
                   </Link>
                   <Link href="/producao" className="nav-link" style={getLinkStyle('/producao')}>

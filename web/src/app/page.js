@@ -1,177 +1,167 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { FileText, Calendar, User, Microscope, ChevronRight } from 'lucide-react'
+import { FileText, Factory, ChevronRight, Microscope } from 'lucide-react'
 
 export default function Home() {
-  const [reports, setReports] = useState([])
-  const [clients, setClients] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [filterMonth, setFilterMonth] = useState('')
-  const [filterClient, setFilterClient] = useState('')
+  const [userName, setUserName] = useState('')
 
   useEffect(() => {
-    fetchClients()
-    fetchReports(filterMonth, filterClient)
-  }, [filterMonth, filterClient])
-
-  async function fetchClients() {
-    try {
-      const { data } = await supabase.from('clients').select('id, name')
-      if (data) setClients(data)
-    } catch (err) {
-      console.error('Error fetching clients:', err)
-    }
-  }
-
-  async function fetchReports(month, clientId) {
-    try {
-      setLoading(true)
-      let query = supabase
-        .from('reports')
-        .select('*')
-        .order('issue_date', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
-
-      if (month) {
-        const startOfMonth = `${month}-01`
-        const [year, m] = month.split('-')
-        const endOfMonth = new Date(year, m, 0).toISOString().split('T')[0]
-
-        query = query.gte('issue_date', startOfMonth).lte('issue_date', endOfMonth)
+    // Busca o nome do usuário salvo pelo LoginScreen
+    const savedUser = localStorage.getItem('proativa_auth_user')
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser)
+        setUserName(user.name)
+      } catch (err) {
+        console.error('Error parsing user data', err)
       }
-
-      if (clientId) {
-        query = query.eq('client_id', clientId)
-      }
-
-      const { data, error } = await query
-
-      if (error) throw error
-      setReports(data || [])
-    } catch (error) {
-      console.error('Error fetching reports:', error.message)
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [])
 
   return (
-    <div>
-      <div className="header-actions" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '3rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h1 className="title-main">Dashboard de Laudos</h1>
-            <p className="title-sub">Gerencie e visualize todas as análises microbiológicas concluídas.</p>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-              <Link href="/create" passHref>
-                <button className="btn btn-primary">
-                  Novo Laudo
-                </button>
-              </Link>
-              <Link href="/clients" passHref>
-                <button className="btn btn-secondary">
-                  <User size={18} style={{ marginRight: '6px' }} /> Meus Clientes
-                </button>
-              </Link>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filtrar por Cliente</label>
-              <select
-                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', background: 'transparent' }}
-                value={filterClient}
-                onChange={(e) => setFilterClient(e.target.value)}
-              >
-                <option value="">Todos os Clientes</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+    <div style={{
+      animation: 'fadeIn 0.5s ease',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '2rem'
+    }}>
+      {/* Welcome Header */}
+      <div className="card" style={{
+        background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.8) 0%, rgba(3, 105, 161, 0.9) 100%)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.3)',
+        color: 'white',
+        padding: '3.5rem 2.5rem',
+        position: 'relative',
+        overflow: 'hidden',
+        boxShadow: '0 25px 50px -12px rgba(14, 165, 233, 0.25)'
+      }}>
+        {/* Decorative background circle */}
+        <div style={{
+          position: 'absolute',
+          top: '-50%',
+          right: '-10%',
+          width: '400px',
+          height: '400px',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)',
+          borderRadius: '50%',
+          zIndex: 0
+        }} />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filtrar por Emissão (Mês/Ano)</label>
-              <input
-                type="month"
-                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', background: 'transparent' }}
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
-              />
-            </div>
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <div style={{
+            background: 'rgba(255,255,255,0.2)',
+            padding: '1rem',
+            borderRadius: '16px',
+            backdropFilter: 'blur(10px)'
+          }}>
+            <Microscope size={40} color="white" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: '2.5rem', fontWeight: 800, margin: 0, letterSpacing: '-0.5px' }}>
+              Olá, {userName || 'Usuário'}
+            </h1>
+            <p style={{ fontSize: '1.1rem', opacity: 0.9, marginTop: '0.5rem', maxWidth: '600px', lineHeight: 1.5 }}>
+              Bem-vindo ao <strong>Proativa Lab</strong>. Plataforma central para o gerenciamento premium de Produção e Controle de Qualidade microbiológico. Selecione o módulo desejado abaixo para iniciar.
+            </p>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <h2 style={{ marginBottom: '2rem' }}>
-          <FileText size={24} color="var(--primary-color)" />
-          Todos os Laudos
-        </h2>
-
-        {loading ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            Carregando laudos...
+      {/* Modules Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+        gap: '2rem'
+      }}>
+        {/* Laudos Card */}
+        <Link href="/laudos" className="card interactive-card" style={{
+          padding: '2.5rem 2rem',
+          display: 'flex',
+          flexDirection: 'column',
+          textDecoration: 'none',
+          background: 'rgba(255, 255, 255, 0.65)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderTop: '4px solid var(--primary-color)',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.8)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.8)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.8)',
+          boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05)'
+        }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
+            background: '#e0f2fe',
+            color: 'var(--primary-color)',
+            marginBottom: '1.5rem'
+          }}>
+            <FileText size={32} />
           </div>
-        ) : reports.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '4rem 2rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.4)', borderRadius: '12px' }}>
-            <Microscope size={48} style={{ opacity: 0.3, margin: '0 auto 1.5rem' }} />
-            <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', marginBottom: '0.5rem' }}>Nenhum laudo encontrado</h3>
-            <p style={{ fontSize: '0.95rem' }}>Os laudos que você criar aparecerão aqui.</p>
-            <Link href="/create" passHref>
-              <button className="btn btn-primary" style={{ marginTop: '1.5rem' }}>Criar Primeiro Laudo</button>
-            </Link>
+          <h2 style={{ fontSize: '1.6rem', color: '#0f172a', marginBottom: '0.75rem', fontWeight: 700 }}>
+            Laudos Microbiológicos
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: 1.6, flexGrow: 1, marginBottom: '2rem' }}>
+            Acesso ao sistema completo de certificados. Crie novos laudos a partir de análises, edite registros, associe fotos e gere PDFs profissionais customizados.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', color: 'var(--primary-color)', fontWeight: 600, fontSize: '1.05rem', gap: '0.5rem' }}>
+            Acessar Módulo <ChevronRight size={20} />
           </div>
-        ) : (
-          <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-            {reports.map(report => {
-              const client = clients.find(c => c.id === report.client_id)
-              const clientName = client ? client.name : (report.requester || 'Cliente não vinculado')
+        </Link>
 
-              return (
-                <Link href={`/report/${report.id}`} key={report.id} className="card interactive-card" style={{ padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                    <h3 style={{ fontSize: '1.2rem', color: 'var(--text-main)', fontWeight: 600, lineHeight: 1.3 }}>
-                      {report.name}
-                    </h3>
-                    <ChevronRight size={20} color="var(--primary-color)" style={{ opacity: 0.5 }} />
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                      <div style={{ background: '#e5f1ff', padding: '0.4rem', borderRadius: '6px', color: 'var(--primary-color)' }}>
-                        <User size={16} />
-                      </div>
-                      <div>
-                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-                          {report.requester ? `Solicitante: ${report.requester}` : 'Cliente / Fazenda'}
-                        </span>
-                        {clientName} - {report.property}
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--text-main)' }}>
-                      <div style={{ background: '#e5f1ff', padding: '0.4rem', borderRadius: '6px', color: 'var(--primary-color)' }}>
-                        <Calendar size={16} />
-                      </div>
-                      <div>
-                        <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Data de Emissão</span>
-                        {report.issue_date ? new Date(report.issue_date + 'T12:00:00Z').toLocaleDateString('pt-BR') : '-'}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-                    <span className="badge">Visualizar Detalhes</span>
-                  </div>
-                </Link>
-              )
-            })}
+        {/* Produção Card */}
+        <Link href="/producao" className="card interactive-card" style={{
+          padding: '2.5rem 2rem',
+          display: 'flex',
+          flexDirection: 'column',
+          textDecoration: 'none',
+          background: 'rgba(255, 255, 255, 0.65)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderTop: '4px solid #10b981', // Green top border for production
+          borderLeft: '1px solid rgba(255, 255, 255, 0.8)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.8)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.8)',
+          boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05)'
+        }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
+            background: '#d1fae5',
+            color: '#10b981',
+            marginBottom: '1.5rem'
+          }}>
+            <Factory size={32} />
           </div>
-        )}
+          <h2 style={{ fontSize: '1.6rem', color: '#0f172a', marginBottom: '0.75rem', fontWeight: 700 }}>
+            Acompanhamento de Produção
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: 1.6, flexGrow: 1, marginBottom: '2rem' }}>
+            Quadro Kanban para visualização instantânea de pedidos. Mova lotes pelas etapas de incubação, finalização e acompanhe o fluxo da biofábrica em tempo real.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', color: '#10b981', fontWeight: 600, fontSize: '1.05rem', gap: '0.5rem' }}>
+            Acessar Módulo <ChevronRight size={20} />
+          </div>
+        </Link>
       </div>
+
+      <style jsx global>{`
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   )
 }
