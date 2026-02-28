@@ -40,7 +40,8 @@
 body {
   font-family: var(--font-family);
   color: var(--text-main);
-  background: #f8fafc;
+  background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid) 40%, var(--bg-gradient-end) 70%, var(--bg-gradient-bottom));
+  background-attachment: fixed;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
