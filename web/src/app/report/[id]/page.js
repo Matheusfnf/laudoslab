@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, User, MapPin, Microscope, CheckCircle, Trash2, Download, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, Calendar, User, MapPin, Microscope, CheckCircle, Trash2, Download, Image as ImageIcon, Copy, AlertTriangle } from 'lucide-react'
 import ReportPDFTemplate from '@/components/ReportPDFTemplate'
 
 export default function ReportView() {
@@ -15,9 +15,15 @@ export default function ReportView() {
     const [micros, setMicros] = useState([])
     const [loading, setLoading] = useState(true)
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+    const [isCreatingMod, setIsCreatingMod] = useState(false)
+    const [userRole, setUserRole] = useState('user')
     const pdfRef = useRef(null)
 
     useEffect(() => {
+        const savedUser = localStorage.getItem('proativa_auth_user')
+        if (savedUser) {
+            setUserRole(JSON.parse(savedUser).role || 'user')
+        }
         if (id) {
             fetchReportDetails()
         }
@@ -35,6 +41,15 @@ export default function ReportView() {
                 .single()
 
             if (reportError) throw reportError
+
+            // Block access if report is modified and user is not diretoria
+            const savedUser = localStorage.getItem('proativa_auth_user')
+            const currentRole = savedUser ? JSON.parse(savedUser).role : 'user'
+            if (reportData.is_modified && currentRole !== 'diretoria') {
+                router.replace('/')
+                return
+            }
+
             setReport(reportData)
 
             // Fetch microorganisms
@@ -101,6 +116,55 @@ export default function ReportView() {
         }
     }
 
+    const handleCreateModification = async () => {
+        try {
+            setIsCreatingMod(true)
+
+            // 1. Duplica report
+            const { clients, id: oldId, created_at, ...reportDataToCopy } = report
+
+            const { data: newReport, error: repErr } = await supabase
+                .from('reports')
+                .insert([{
+                    ...reportDataToCopy,
+                    is_modified: true,
+                    parent_report_id: oldId
+                }])
+                .select()
+                .single()
+
+            if (repErr) throw repErr
+
+            // 2. Duplica microorganisms
+            if (micros.length > 0) {
+                const microsToCopy = micros.map(m => {
+                    const { id: mId, created_at: mCreated, report_id, ...rest } = m
+                    return {
+                        ...rest,
+                        report_id: newReport.id,
+                        is_modified: true,
+                        parent_microorganism_id: mId
+                    }
+                })
+
+                const { error: micErr } = await supabase
+                    .from('microorganisms')
+                    .insert(microsToCopy)
+
+                if (micErr) throw micErr
+            }
+
+            alert('Laudo modificado criado com sucesso! Redirecionando para edição...')
+            router.push(`/edit/${newReport.id}`)
+
+        } catch (err) {
+            console.error('Erro ao criar modificação:', err.message)
+            alert('Erro ao criar modificação.')
+        } finally {
+            setIsCreatingMod(false)
+        }
+    }
+
     if (loading) {
         return (
             <div style={{ padding: '2rem', textAlign: 'center' }}>Carregando laudo...</div>
@@ -120,9 +184,15 @@ export default function ReportView() {
 
     return (
         <div style={{ paddingBottom: '3rem', maxWidth: '900px', margin: '0 auto' }}>
+            {report.is_modified && (
+                <div style={{ background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '0.75rem 1.25rem', borderRadius: '8px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 600 }}>
+                    <AlertTriangle size={20} />
+                    <span>ESTE É UM LAUDO MODIFICADO (Cópia da versão enviada ao cliente).</span>
+                </div>
+            )}
             <div className="header-actions">
                 <div>
-                    <button className="btn btn-secondary" onClick={() => router.push('/laudos')} style={{ padding: '0.5rem 1rem', marginBottom: '1.5rem' }}>
+                    <button className="btn btn-secondary" onClick={() => router.push(report.is_modified ? '/laudos/modificados' : '/laudos')} style={{ padding: '0.5rem 1rem', marginBottom: '1.5rem' }}>
                         <ArrowLeft size={16} /> Voltar
                     </button>
                     <h1 className="title-main">{report.name}</h1>
@@ -146,6 +216,16 @@ export default function ReportView() {
                         <Trash2 size={18} />
                         Excluir
                     </button>
+                    {userRole === 'diretoria' && !report.is_modified && (
+                        <button
+                            className="btn btn-secondary"
+                            onClick={handleCreateModification}
+                            disabled={isCreatingMod}
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', borderColor: '#f59e0b', color: '#d97706', background: '#fef3c7' }}
+                        >
+                            {isCreatingMod ? 'Criando...' : <><Copy size={18} /> Criar Modificação</>}
+                        </button>
+                    )}
                     <Link href={`/edit/${report.id}`}>
                         <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', background: '#fff' }}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>

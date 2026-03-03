@@ -4,7 +4,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import Link from 'next/link'
 import { Microscope, FileText, Factory, LogOut, Home } from 'lucide-react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import LoginScreen from '@/components/LoginScreen'
 
@@ -12,6 +12,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({ children }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [user, setUser] = useState(null)
   const [isAuthChecking, setIsAuthChecking] = useState(true)
 
@@ -27,6 +28,12 @@ export default function RootLayout({ children }) {
   const handleLogout = () => {
     localStorage.removeItem('proativa_auth_user')
     setUser(null)
+    router.replace('/')
+  }
+
+  const handleLogin = (userData) => {
+    setUser(userData)
+    router.replace('/')
   }
 
   // Function to determine if a route is active and apply specific styles
@@ -68,7 +75,7 @@ export default function RootLayout({ children }) {
             <p style={{ color: 'var(--primary-color)', fontWeight: 600 }}>Carregando...</p>
           </div>
         ) : !user ? (
-          <LoginScreen onLogin={(userData) => setUser(userData)} />
+          <LoginScreen onLogin={handleLogin} />
         ) : (
           <>
             {/* Navigation Bar */}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { PlusCircle, Trash2, ArrowLeft, Save, CheckCircle, Loader2, Upload, X } from 'lucide-react'
+import { PlusCircle, Trash2, ArrowLeft, Save, CheckCircle, Loader2, Upload, X, AlertTriangle } from 'lucide-react'
 import ImageEditorModal from '@/components/ImageEditorModal'
 
 // Util function to format powers like ^5 to ⁵
@@ -38,7 +38,8 @@ export default function EditReport() {
         collection_date: '',
         city: '',
         state: '',
-        observations: ''
+        observations: '',
+        is_modified: false
     })
 
     const [clients, setClients] = useState([])
@@ -70,6 +71,15 @@ export default function EditReport() {
 
                 if (reportError) throw reportError
 
+                // Enforce role check for modified reports
+                const savedUser = localStorage.getItem('proativa_auth_user')
+                const currentRole = savedUser ? JSON.parse(savedUser).role : 'user'
+
+                if (reportData.is_modified && currentRole !== 'diretoria') {
+                    router.replace('/')
+                    return
+                }
+
                 setHeader({
                     name: reportData.name || '',
                     client_id: reportData.client_id || '',
@@ -82,7 +92,8 @@ export default function EditReport() {
                     collection_date: reportData.collection_date || '',
                     city: reportData.city || '',
                     state: reportData.state || '',
-                    observations: reportData.observations || ''
+                    observations: reportData.observations || '',
+                    is_modified: reportData.is_modified || false
                 })
 
                 if (reportData.images) {
@@ -299,7 +310,7 @@ export default function EditReport() {
             // 3. Insert new microorganisms linking to report_id
             const microsToInsert = micros.filter(m => m.name || m.ph || m.enterobacteria || m.mold_yeast || m.commercial_product || m.recovered.some(r => r.name || r.cfu_per_ml))
                 .map(m => {
-                    const micro = { ...m, report_id: id }
+                    const micro = { ...m, report_id: id, is_modified: header.is_modified }
                     delete micro.id // Prevent ID collision in insert
                     delete micro.created_at
                     delete micro.cfu_per_ml
@@ -373,6 +384,13 @@ export default function EditReport() {
                 <h1 className="title-main" style={{ textAlign: 'center', flex: 1 }}>Editar Laudo</h1>
                 <div style={{ width: '92px' }}></div> {/* Spacer to keep title centered */}
             </div>
+
+            {header.is_modified && (
+                <div style={{ background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '0.75rem 1.25rem', borderRadius: '8px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 600 }}>
+                    <AlertTriangle size={20} />
+                    <span>ATENÇÃO: VOCÊ ESTÁ EDITANDO UM LAUDO MODIFICADO. (O laudo original do cliente permanece intacto)</span>
+                </div>
+            )}
 
             {error && (
                 <div style={{ background: '#ffebee', color: '#c62828', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>

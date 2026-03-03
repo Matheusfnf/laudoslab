@@ -11,8 +11,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [filterMonth, setFilterMonth] = useState('')
   const [filterClient, setFilterClient] = useState('')
+  const [userRole, setUserRole] = useState('user')
 
   useEffect(() => {
+    const savedUser = localStorage.getItem('proativa_auth_user')
+    if (savedUser) {
+      const parsedUser = JSON.parse(savedUser)
+      setUserRole(parsedUser.role || 'user')
+    }
     fetchClients()
     fetchReports(filterMonth, filterClient)
   }, [filterMonth, filterClient])
@@ -32,6 +38,7 @@ export default function Home() {
       let query = supabase
         .from('reports')
         .select('*')
+        .neq('is_modified', true)
         .order('issue_date', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
 
@@ -76,6 +83,13 @@ export default function Home() {
                   <User size={18} style={{ marginRight: '6px' }} /> Meus Clientes
                 </button>
               </Link>
+              {userRole === 'diretoria' && (
+                <Link href="/laudos/modificados" passHref>
+                  <button className="btn btn-secondary" style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)', background: '#e0f2fe' }}>
+                    <FileText size={18} style={{ marginRight: '6px' }} /> Modificados
+                  </button>
+                </Link>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>

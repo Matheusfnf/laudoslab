@@ -66,7 +66,11 @@ export default function LoginScreen({ onLogin }) {
                 // data.session vai vir null. Aqui assumimos que ele já loga direto
                 // (opção Confirm Email desativada lá no painel).
                 if (data.session) {
-                    const userData = { id: data.user.id, name: displayName.trim(), email: data.user.email }
+                    // Buscar role
+                    const { data: roleData } = await supabase.from('allowed_emails').select('role').eq('email', data.user.email).maybeSingle()
+                    const userRole = roleData?.role || 'user'
+
+                    const userData = { id: data.user.id, name: displayName.trim(), email: data.user.email, role: userRole }
                     localStorage.setItem('proativa_auth_user', JSON.stringify(userData))
                     onLogin(userData)
                 } else {
@@ -90,7 +94,12 @@ export default function LoginScreen({ onLogin }) {
 
                 if (data.user) {
                     const userName = data.user.user_metadata?.name || data.user.email.split('@')[0]
-                    const userData = { id: data.user.id, name: userName, email: data.user.email }
+
+                    // Buscar role
+                    const { data: roleData } = await supabase.from('allowed_emails').select('role').eq('email', data.user.email).maybeSingle()
+                    const userRole = roleData?.role || 'user'
+
+                    const userData = { id: data.user.id, name: userName, email: data.user.email, role: userRole }
                     localStorage.setItem('proativa_auth_user', JSON.stringify(userData))
                     onLogin(userData)
                 } else {
