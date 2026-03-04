@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText } from 'lucide-react'
+import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText, Clipboard as ClipBoard } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -22,11 +22,17 @@ export default function Producao() {
     // Modals state
     const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
     const [isBatchModalOpen, setIsBatchModalOpen] = useState(false)
+    const [imagePreviewUrl, setImagePreviewUrl] = useState(null)
 
     // Form state for Order
     const [newOrder, setNewOrder] = useState({
         orderNumber: '',
         client: '',
+        requesterName: '',
+        orderDate: '',
+        estimatedCompletionDate: '',
+        receiptImage: null, // Novo campo para o arquivo da imagem em si
+        receiptImageUrl: '', // URL retornado do banco
         items: []
     })
     const [currentItem, setCurrentItem] = useState({ productName: '', quantity: '', unit: 'UN' })
@@ -92,6 +98,10 @@ export default function Producao() {
                     id: order.id,
                     orderNumber: order.order_number,
                     client: order.client,
+                    requesterName: order.requester_name,
+                    orderDate: order.order_date,
+                    estimatedCompletionDate: order.estimated_completion_date,
+                    receiptImageUrl: order.receipt_image_url,
                     status: order.status,
                     items: orderItems
                 }
@@ -114,7 +124,9 @@ export default function Producao() {
                     productName: item.product_name || 'Desconhecido',
                     unit: item.unit || 'UN',
                     orderNumber: order.order_number || '?',
-                    client: order.client || '?'
+                    client: order.client || '?',
+                    requesterName: order.requester_name || 'Não informado',
+                    orderDate: order.order_date || null
                 }
             })
 
@@ -210,6 +222,11 @@ export default function Producao() {
         setNewOrder({
             orderNumber: orderToEdit.orderNumber,
             client: orderToEdit.client,
+            requesterName: orderToEdit.requesterName || '',
+            orderDate: orderToEdit.orderDate || '',
+            estimatedCompletionDate: orderToEdit.estimatedCompletionDate || '',
+            receiptImage: null, // Reset input
+            receiptImageUrl: orderToEdit.receiptImageUrl || '',
             items: orderToEdit.items.map(i => ({
                 id: i.id, // Original ID
                 productName: i.productName,
@@ -261,12 +278,43 @@ export default function Producao() {
             alert("Preencha número, cliente e ao menos um produto.");
             return;
         }
+
         try {
+            let uploadedImageUrl = newOrder.receiptImageUrl;
+
+            // Upload de Imagem se houver
+            if (newOrder.receiptImage) {
+                const fileExt = newOrder.receiptImage.name.split('.').pop();
+                const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const filePath = `receipts/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('production-receipts')
+                    .upload(filePath, newOrder.receiptImage, { cacheControl: '3600', upsert: false });
+
+                if (uploadError) throw uploadError;
+
+                const { data: publicUrlData } = supabase.storage
+                    .from('production-receipts')
+                    .getPublicUrl(filePath);
+
+                uploadedImageUrl = publicUrlData.publicUrl;
+            }
+
+            const payloadData = {
+                order_number: newOrder.orderNumber,
+                client: newOrder.client,
+                requester_name: newOrder.requesterName || null,
+                order_date: newOrder.orderDate || null,
+                estimated_completion_date: newOrder.estimatedCompletionDate || null,
+                receipt_image_url: uploadedImageUrl || null
+            };
+
             if (editingOrderId) {
                 // UPDATE
                 const { error: updateError } = await supabase
                     .from('production_orders')
-                    .update({ order_number: newOrder.orderNumber, client: newOrder.client })
+                    .update(payloadData)
                     .eq('id', editingOrderId)
 
                 if (updateError) throw updateError
@@ -321,7 +369,7 @@ export default function Producao() {
                 // INSERT NOVO PEDIDO
                 const { data: orderData, error: orderError } = await supabase
                     .from('production_orders')
-                    .insert([{ order_number: newOrder.orderNumber, client: newOrder.client, status: 'pending' }])
+                    .insert([{ ...payloadData, status: 'pending' }])
                     .select().single()
                 if (orderError) throw orderError
 
@@ -533,9 +581,17 @@ export default function Producao() {
                                                     <span style={{ wordBreak: 'break-word' }}>Pedido #{order.orderNumber}</span>
                                                     {isOrderComplete && <CheckCircle2 size={16} color="#10b981" style={{ flexShrink: 0 }} />}
                                                 </div>
-                                                <div style={{ fontSize: '0.82rem', color: isSelected ? '#0369a1' : '#64748b', fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: '0.3rem', marginTop: '0.3rem' }}>
-                                                    <User size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
-                                                    <span style={{ wordBreak: 'break-word', lineHeight: 1.3 }}>Cliente: {order.client || 'Nenhum'}</span>
+                                                <div style={{ fontSize: '0.82rem', color: isSelected ? '#0369a1' : '#64748b', fontWeight: 600, display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.3rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.3rem' }}>
+                                                        <User size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
+                                                        <span style={{ wordBreak: 'break-word', lineHeight: 1.3 }}>Cliente: {order.client || 'Nenhum'}</span>
+                                                    </div>
+                                                    {order.requesterName && (
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.3rem', color: isSelected ? '#0284c7' : '#94a3b8' }}>
+                                                            <User size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
+                                                            <span style={{ wordBreak: 'break-word', lineHeight: 1.3 }}>Solc.: {order.requesterName}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <ChevronRight size={18} color={isSelected ? '#0ea5e9' : '#94a3b8'} style={{ flexShrink: 0 }} />
@@ -558,14 +614,36 @@ export default function Producao() {
                     ) : (
                         <>
                             {/* Selected Order Header */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '1rem 1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', flexShrink: 0 }}>
-                                <div>
-                                    <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: '#fff', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', flexShrink: 0, gap: '1.5rem', flexWrap: 'wrap' }}>
+                                <div style={{ flex: '1 1 min-content' }}>
+                                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 0 0.5rem 0' }}>
                                         Pedido Selecionado: #{orders.find(o => o.id === selectedOrderId)?.orderNumber}
                                     </h2>
-                                    <span style={{ fontSize: '0.85rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.3rem' }}>
-                                        <User size={14} /> Cliente: {orders.find(o => o.id === selectedOrderId)?.client}
-                                    </span>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <User size={15} color="#0ea5e9" /> <strong style={{ color: '#334155' }}>Cliente:</strong> {orders.find(o => o.id === selectedOrderId)?.client}
+                                        </span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <User size={15} /> <strong>Solicitante:</strong> {orders.find(o => o.id === selectedOrderId)?.requesterName || '-'}
+                                        </span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <Calendar size={15} /> <strong>Pedido:</strong> {formatDateForDisplay(orders.find(o => o.id === selectedOrderId)?.orderDate) || '-'}
+                                        </span>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <Calendar size={15} color="#f59e0b" /> <strong style={{ color: '#f59e0b' }}>Prev:</strong> {formatDateForDisplay(orders.find(o => o.id === selectedOrderId)?.estimatedCompletionDate) || '-'}
+                                        </span>
+                                    </div>
+
+                                    {orders.find(o => o.id === selectedOrderId)?.receiptImageUrl && (
+                                        <div style={{ marginTop: '0.8rem' }}>
+                                            <button
+                                                onClick={() => setImagePreviewUrl(orders.find(o => o.id === selectedOrderId)?.receiptImageUrl)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                                            >
+                                                <ClipBoard size={14} /> Ver Comprovante / Caderno
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
                                     <button
@@ -792,7 +870,7 @@ export default function Producao() {
                             {editingOrderId ? 'Editar Pedido' : 'Cadastrar Novo Pedido'}
                         </h2>
 
-                        <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                             <div style={{ flex: '1 1 min-content' }}>
                                 <label>Número do Pedido *</label>
                                 <input type="text" placeholder="Ex: 10045" value={newOrder.orderNumber} onChange={e => setNewOrder({ ...newOrder, orderNumber: e.target.value })} />
@@ -801,6 +879,40 @@ export default function Producao() {
                                 <label>Cliente *</label>
                                 <input type="text" placeholder="Nome do Cliente" value={newOrder.client} onChange={e => setNewOrder({ ...newOrder, client: e.target.value })} />
                             </div>
+                        </div>
+
+                        <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                            <div style={{ flex: '2 1 min-content' }}>
+                                <label>Solicitante</label>
+                                <input type="text" placeholder="Quem fez o pedido?" value={newOrder.requesterName} onChange={e => setNewOrder({ ...newOrder, requesterName: e.target.value })} />
+                            </div>
+                            <div style={{ flex: '1 1 min-content' }}>
+                                <label>Data do Pedido</label>
+                                <input type="date" value={newOrder.orderDate} onChange={e => setNewOrder({ ...newOrder, orderDate: e.target.value })} />
+                            </div>
+                            <div style={{ flex: '1 1 min-content' }}>
+                                <label>Previsão Conclusão</label>
+                                <input type="date" value={newOrder.estimatedCompletionDate} onChange={e => setNewOrder({ ...newOrder, estimatedCompletionDate: e.target.value })} />
+                            </div>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                            <label>Comprovante do Pedido (Opcional)</label>
+                            {newOrder.receiptImageUrl && !newOrder.receiptImage && (
+                                <div style={{ fontSize: '0.85rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <CheckCircle2 size={16} /> Comprovante já anexado. Envie outro para substituir.
+                                </div>
+                            )}
+                            <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                onChange={e => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                        setNewOrder({ ...newOrder, receiptImage: e.target.files[0] })
+                                    }
+                                }}
+                                style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '8px', width: '100%', background: '#f8fafc' }}
+                            />
                         </div>
 
                         <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', marginTop: '1.5rem', border: '1px solid #e2e8f0' }}>
@@ -871,6 +983,29 @@ export default function Producao() {
                             <button className="btn btn-primary" onClick={handleSaveBatch}>
                                 {editingBatchId ? 'Salvar Lote' : 'Gerar Lote no Kanban'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* MODAL PREVIEW IMAGEM */}
+            {imagePreviewUrl && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
+                    <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
+                        <button
+                            onClick={() => setImagePreviewUrl(null)}
+                            style={{ position: 'absolute', top: '-40px', right: 0, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer' }}
+                        >
+                            <X size={24} />
+                        </button>
+                        <img
+                            src={imagePreviewUrl}
+                            alt="Comprovante do Pedido"
+                            style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                        />
+                        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                            <a href={imagePreviewUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#bae6fd', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
+                                ↗ Abrir Original
+                            </a>
                         </div>
                     </div>
                 </div>
