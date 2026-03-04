@@ -51,7 +51,7 @@ export default function Home() {
           zIndex: 0
         }} />
 
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
           <div style={{
             background: 'rgba(255,255,255,0.2)',
             padding: '1rem',
@@ -60,11 +60,11 @@ export default function Home() {
           }}>
             <Microscope size={40} color="white" />
           </div>
-          <div>
-            <h1 style={{ fontSize: '2.5rem', fontWeight: 800, margin: 0, letterSpacing: '-0.5px' }}>
+          <div style={{ flex: 1, minWidth: '250px' }}>
+            <h1 style={{ fontSize: 'clamp(1.8rem, 5vw, 2.5rem)', fontWeight: 800, margin: 0, letterSpacing: '-0.5px' }}>
               Olá, {userName || 'Usuário'}
             </h1>
-            <p style={{ fontSize: '1.1rem', opacity: 0.9, marginTop: '0.5rem', maxWidth: '600px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 'clamp(0.95rem, 3vw, 1.1rem)', opacity: 0.9, marginTop: '0.5rem', maxWidth: '600px', lineHeight: 1.5 }}>
               Bem-vindo ao <strong>Proativa Lab</strong>. Plataforma central para o gerenciamento premium de Produção e Controle de Qualidade microbiológico. Selecione o módulo desejado abaixo para iniciar.
             </p>
           </div>
@@ -74,7 +74,7 @@ export default function Home() {
       {/* Modules Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
         gap: '2rem'
       }}>
         {/* Laudos Card */}

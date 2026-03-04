@@ -129,7 +129,7 @@ export default function LoginScreen({ onLogin }) {
                 backdropFilter: 'blur(20px)',
                 WebkitBackdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.6)',
-                padding: '3rem 2.5rem',
+                padding: 'clamp(2rem, 5vw, 3rem) clamp(1.5rem, 4vw, 2.5rem)',
                 borderRadius: '24px',
                 boxShadow: '0 20px 40px -10px rgba(0,0,0,0.1), 0 10px 20px -10px rgba(0,0,0,0.05)',
                 width: '100%',

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, Edit2, ScrollText } from 'lucide-react'
+import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -173,28 +173,33 @@ export default function Producao() {
         }
         else if (draggedItem.type === 'batch') {
             const batch = draggedItem.data;
-            if (batch.status !== colId && colId !== 'products') {
-                const originalBatches = [...batches]
-                setBatches(batches.map(b => b.id === batch.id ? { ...b, status: colId } : b))
-
-                try {
-                    const { error } = await supabase
-                        .from('production_batches')
-                        .update({ status: colId, updated_at: new Date().toISOString() })
-                        .eq('id', batch.id)
-
-                    if (error) throw error
-                    if (colId === 'done' || batch.status === 'done') {
-                        fetchData() // Refresh partial qtys
-                    }
-                } catch (error) {
-                    console.error('Error updating status:', error)
-                    setBatches(originalBatches)
-                    alert('Erro ao mover o lote.')
-                }
-            }
+            handleMoveBatchStatus(batch, colId);
         }
         setDraggedItem(null)
+    }
+
+    const handleMoveBatchStatus = async (batch, newStatus) => {
+        if (newStatus === 'products') return; // Bloqueia Lote -> Produto
+        if (batch.status === newStatus) return;
+
+        const originalBatches = [...batches]
+        setBatches(batches.map(b => b.id === batch.id ? { ...b, status: newStatus } : b))
+
+        try {
+            const { error } = await supabase
+                .from('production_batches')
+                .update({ status: newStatus, updated_at: new Date().toISOString() })
+                .eq('id', batch.id)
+
+            if (error) throw error
+            if (newStatus === 'done' || batch.status === 'done') {
+                fetchData() // Refresh partial qtys
+            }
+        } catch (error) {
+            console.error('Error updating status:', error)
+            setBatches(originalBatches)
+            alert('Erro ao mover o lote.')
+        }
     }
 
     // Ações de Pedido (Editar e Excluir)
@@ -471,22 +476,10 @@ export default function Producao() {
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '2rem', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            <div className="producao-container">
 
                 {/* SIDEBAR: PEDIDOS */}
-                <div style={{
-                    minWidth: '300px',
-                    width: '30%',
-                    maxWidth: '400px',
-                    background: '#fff',
-                    borderRadius: '16px',
-                    border: '1px solid #e2e8f0',
-                    padding: '1.5rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1rem',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
-                }}>
+                <div className="producao-sidebar">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Pedidos</h2>
                         <button
@@ -552,14 +545,7 @@ export default function Producao() {
                 </div>
 
                 {/* BOARD: LOTES */}
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1.5rem',
-                    flex: 1,
-                    paddingBottom: '0.5rem',
-                    overflow: 'hidden'
-                }}>
+                <div className="producao-board">
                     {!selectedOrderId ? (
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
                             <Package size={48} color="#cbd5e1" style={{ marginBottom: '1rem' }} />
@@ -578,7 +564,7 @@ export default function Producao() {
                                         <User size={14} /> Cliente: {orders.find(o => o.id === selectedOrderId)?.client}
                                     </span>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
                                     <button
                                         onClick={handleEditOrder}
                                         style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '0.5rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
@@ -595,14 +581,14 @@ export default function Producao() {
                                     >
                                         <Trash2 size={14} /> Excluir
                                     </button>
-                                    <div style={{ width: '1px', height: '24px', background: '#e2e8f0', margin: '0 0.5rem' }}></div>
+                                    <div style={{ width: '1px', height: '24px', background: '#e2e8f0', margin: '0 0.5rem' }} className="responsive-divider"></div>
                                     <button onClick={() => setSelectedOrderId(null)} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
                                         Limpar Seleção
                                     </button>
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: '1.5rem', flex: 1, minHeight: 0 }}>
+                            <div className="kanban-columns">
                                 {columns.map(col => {
                                     const currentOrder = orders.find(o => o.id === selectedOrderId)
                                     // Filtramos os batches apenas do pedido selecionado
@@ -618,19 +604,11 @@ export default function Producao() {
                                             onDragOver={(e) => handleDragOver(e, col.id)}
                                             onDragLeave={handleDragLeave}
                                             onDrop={(e) => handleDrop(e, col.id)}
+                                            className="kanban-column"
                                             style={{
-                                                flex: 1,
-                                                minWidth: 0, // Permite que a flexbox encolha
                                                 background: col.bg,
                                                 border: isOver ? `2px dashed ${col.color}` : '2px solid transparent',
-                                                borderRadius: '16px',
-                                                padding: '1.25rem',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                transition: 'all 0.2s ease',
                                                 boxShadow: isOver ? `0 0 15px ${col.color}33` : 'none',
-                                                height: '100%',
-                                                overflow: 'hidden'
                                             }}
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexShrink: 0 }}>
@@ -691,7 +669,7 @@ export default function Producao() {
                                                                     <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
                                                                         {item.productName}
                                                                     </h4>
-                                                                    <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab' }} />
+                                                                    <GripVertical size={16} color="#cbd5e1" className="grip-handle" style={{ flexShrink: 0, cursor: 'grab' }} />
                                                                 </div>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                                     <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
@@ -757,7 +735,7 @@ export default function Producao() {
                                                                         <button onClick={(e) => { e.stopPropagation(); router.push(`/producao/certificado/${batch.id}`) }} style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }} title="Emitir Certificado"><ScrollText size={15} /></button>
                                                                         <button onClick={() => handleEditBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }} title="Editar Lote"><Edit2 size={14} /></button>
                                                                         <button onClick={() => handleDeleteBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '2px' }} title="Excluir Lote"><Trash2 size={14} /></button>
-                                                                        <GripVertical size={16} color="#cbd5e1" style={{ flexShrink: 0, cursor: 'grab', marginLeft: '4px' }} />
+                                                                        <GripVertical size={16} color="#cbd5e1" className="grip-handle" style={{ flexShrink: 0, cursor: 'grab', marginLeft: '4px' }} />
                                                                     </div>
                                                                 </div>
 
@@ -770,6 +748,20 @@ export default function Producao() {
                                                                 <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.2rem' }}>
                                                                     {batch.manufactureDate && <div><strong>Fab:</strong> {formatDateForDisplay(batch.manufactureDate)}</div>}
                                                                     {batch.expirationDate && <div><strong>Val:</strong> {formatDateForDisplay(batch.expirationDate)}</div>}
+                                                                </div>
+
+                                                                {/* BOTOES DE MOVIMENTACAO MOBILE */}
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.8rem' }} className="mobile-move-actions">
+                                                                    {batch.status === 'done' && (
+                                                                        <button onClick={(e) => { e.stopPropagation(); handleMoveBatchStatus(batch, 'in_progress') }} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '0.4rem', borderRadius: '8px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}>
+                                                                            <ChevronLeft size={16} /> Voltar Lote
+                                                                        </button>
+                                                                    )}
+                                                                    {batch.status === 'in_progress' && (
+                                                                        <button onClick={(e) => { e.stopPropagation(); handleMoveBatchStatus(batch, 'done') }} style={{ background: '#ecfdf5', border: '1px solid #d1fae5', color: '#10b981', padding: '0.4rem', borderRadius: '8px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontWeight: 600, cursor: 'pointer' }}>
+                                                                            Concluir <ChevronRight size={16} />
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         )
@@ -797,12 +789,12 @@ export default function Producao() {
                             {editingOrderId ? 'Editar Pedido' : 'Cadastrar Novo Pedido'}
                         </h2>
 
-                        <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
-                            <div style={{ flex: 1 }}>
+                        <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                            <div style={{ flex: '1 1 min-content' }}>
                                 <label>Número do Pedido *</label>
                                 <input type="text" placeholder="Ex: 10045" value={newOrder.orderNumber} onChange={e => setNewOrder({ ...newOrder, orderNumber: e.target.value })} />
                             </div>
-                            <div style={{ flex: 2 }}>
+                            <div style={{ flex: '2 1 min-content' }}>
                                 <label>Cliente *</label>
                                 <input type="text" placeholder="Nome do Cliente" value={newOrder.client} onChange={e => setNewOrder({ ...newOrder, client: e.target.value })} />
                             </div>
@@ -810,11 +802,11 @@ export default function Producao() {
 
                         <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', marginTop: '1.5rem', border: '1px solid #e2e8f0' }}>
                             <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>Produtos Solicitados</h3>
-                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '1.5rem' }}>
-                                <div style={{ flex: 2 }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Produto</label><input type="text" value={currentItem.productName} onChange={e => setCurrentItem({ ...currentItem, productName: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
-                                <div style={{ flex: 1 }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Qtd Total</label><input type="number" value={currentItem.quantity} onChange={e => setCurrentItem({ ...currentItem, quantity: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
-                                <div style={{ width: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>UN</label><select value={currentItem.unit} onChange={e => setCurrentItem({ ...currentItem, unit: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}><option value="UN">UN</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
-                                <button onClick={handleAddOrderItem} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Add</button>
+                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                                <div style={{ flex: '2 1 min-content', minWidth: '150px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Produto</label><input type="text" value={currentItem.productName} onChange={e => setCurrentItem({ ...currentItem, productName: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
+                                <div style={{ flex: '1 1 auto', minWidth: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Qtd Total</label><input type="number" value={currentItem.quantity} onChange={e => setCurrentItem({ ...currentItem, quantity: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
+                                <div style={{ flex: '1 1 auto', width: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>UN</label><select value={currentItem.unit} onChange={e => setCurrentItem({ ...currentItem, unit: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}><option value="UN">UN</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
+                                <button onClick={handleAddOrderItem} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, width: '100%', marginTop: '0.5rem' }}>Add</button>
                             </div>
 
                             {newOrder.items.length > 0 ? (
@@ -852,12 +844,12 @@ export default function Producao() {
                         </h2>
                         <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Produto: <strong style={{ color: '#1e293b' }}>{newBatch.productName}</strong></p>
 
-                        <div className="form-group" style={{ display: 'flex', gap: '1rem' }}>
-                            <div style={{ flex: 2 }}>
+                        <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                            <div style={{ flex: '2 1 min-content' }}>
                                 <label>Número do Lote *</label>
                                 <input type="text" placeholder="Ex: Lote 001" value={newBatch.batchNumber} onChange={e => setNewBatch({ ...newBatch, batchNumber: e.target.value })} />
                             </div>
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: '1 1 min-content' }}>
                                 <label>Qtd. Lote *</label>
                                 <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
                                     <input type="number" style={{ border: 'none', borderRadius: 0, width: '100%' }} value={newBatch.quantityProduced} onChange={e => setNewBatch({ ...newBatch, quantityProduced: e.target.value })} />
@@ -866,9 +858,9 @@ export default function Producao() {
                             </div>
                         </div>
 
-                        <div className="form-group" style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-                            <div style={{ flex: 1 }}><label>Data Fabricação</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.manufactureDate} onChange={e => setNewBatch({ ...newBatch, manufactureDate: e.target.value })} /></div>
-                            <div style={{ flex: 1 }}><label>Data Vencimento</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.expirationDate} onChange={e => setNewBatch({ ...newBatch, expirationDate: e.target.value })} /></div>
+                        <div className="form-group" style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                            <div style={{ flex: '1 1 min-content' }}><label>Data Fabricação</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.manufactureDate} onChange={e => setNewBatch({ ...newBatch, manufactureDate: e.target.value })} /></div>
+                            <div style={{ flex: '1 1 min-content' }}><label>Data Vencimento</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.expirationDate} onChange={e => setNewBatch({ ...newBatch, expirationDate: e.target.value })} /></div>
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>

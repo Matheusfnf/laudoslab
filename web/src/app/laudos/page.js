@@ -72,28 +72,28 @@ export default function Home() {
           <div>
             <h1 className="title-main">Dashboard de Laudos</h1>
             <p className="title-sub">Gerencie e visualize todas as análises microbiológicas concluídas.</p>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
               <Link href="/create" passHref>
-                <button className="btn btn-primary">
+                <button className="btn btn-primary" style={{ flex: '1 1 auto' }}>
                   Novo Laudo
                 </button>
               </Link>
               <Link href="/clients" passHref>
-                <button className="btn btn-secondary">
+                <button className="btn btn-secondary" style={{ flex: '1 1 auto' }}>
                   <User size={18} style={{ marginRight: '6px' }} /> Meus Clientes
                 </button>
               </Link>
               {userRole === 'diretoria' && (
                 <Link href="/laudos/modificados" passHref>
-                  <button className="btn btn-secondary" style={{ borderColor: 'var(--primary-color)', color: 'var(--primary-color)', background: '#e0f2fe' }}>
+                  <button className="btn btn-secondary" style={{ flex: '1 1 auto', borderColor: 'var(--primary-color)', color: 'var(--primary-color)', background: '#e0f2fe' }}>
                     <FileText size={18} style={{ marginRight: '6px' }} /> Modificados
                   </button>
                 </Link>
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', width: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 min-content' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filtrar por Cliente</label>
               <select
                 style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', background: 'transparent' }}
@@ -107,11 +107,11 @@ export default function Home() {
               </select>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: '1 1 min-content' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Filtrar por Emissão (Mês/Ano)</label>
               <input
                 type="month"
-                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', background: 'transparent' }}
+                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none', background: 'transparent', width: '100%' }}
                 value={filterMonth}
                 onChange={(e) => setFilterMonth(e.target.value)}
               />
@@ -140,7 +140,7 @@ export default function Home() {
             </Link>
           </div>
         ) : (
-          <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
+          <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
             {reports.map(report => {
               const client = clients.find(c => c.id === report.client_id)
               const clientName = client ? client.name : (report.requester || 'Cliente não vinculado')

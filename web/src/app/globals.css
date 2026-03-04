@@ -114,6 +114,26 @@ body {
   color: #fff;
 }
 
+/* Base Responsive Rules */
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .nav-links {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .nav-link {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+  }
+}
+
 /* Glassmorphism Space */
 .main-wrapper {
   flex: 1;
@@ -140,6 +160,20 @@ body {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.6);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .main-wrapper {
+    padding: 1rem;
+  }
+
+  .card {
+    padding: 1.5rem;
+  }
+
+  .card h2 {
+    font-size: 1.25rem;
+  }
 }
 
 .interactive-card {
@@ -285,6 +319,33 @@ textarea:focus {
   margin-top: 0.5rem;
 }
 
+@media (max-width: 768px) {
+  .header-actions {
+    flex-direction: column !important;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .title-main {
+    font-size: 1.75rem;
+  }
+
+  .title-sub {
+    font-size: 0.9rem;
+  }
+
+  .btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .btn-wrapper-mobile {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
 /* Microorganisms List Styles */
 .micro-list {
   display: flex;
@@ -334,4 +395,101 @@ textarea:focus {
   font-weight: 600;
   background: rgba(0, 122, 255, 0.1);
   color: var(--primary-color);
+}
+
+/* Kanban / Production Classes */
+.producao-container {
+  display: flex;
+  gap: 2rem;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.producao-sidebar {
+  min-width: 300px;
+  width: 30%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.producao-board {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  flex: 1;
+  padding-bottom: 0.5rem;
+  overflow: hidden;
+}
+
+.kanban-columns {
+  display: flex;
+  gap: 1.5rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.kanban-column {
+  flex: 1;
+  min-width: 0;
+  border-radius: 16px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Default state: hide mobile actions */
+.mobile-move-actions {
+  display: none !important;
+}
+
+@media (max-width: 1024px) {
+  .producao-container {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .producao-sidebar {
+    width: 100%;
+    max-width: none;
+    max-height: 350px;
+    /* Leave room for the board below */
+    flex-shrink: 0;
+  }
+
+  .producao-board {
+    overflow: visible;
+  }
+
+  .kanban-columns {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 15px;
+    /* space for scrollbar */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .kanban-column {
+    min-width: 300px;
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+  }
+
+  .mobile-move-actions {
+    display: flex !important;
+  }
+
+  .grip-handle {
+    display: none !important;
+  }
 }

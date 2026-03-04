@@ -84,8 +84,8 @@ export default function RootLayout({ children }) {
                 <Microscope size={28} />
                 <span>Proativa Lab</span>
               </Link>
-              <div style={{ display: 'flex', gap: '2rem', alignItems: 'center', flex: 1, justifyContent: 'center' }}>
-                <div className="nav-links" style={{ display: 'flex', gap: '2rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <div className="nav-links">
                   <Link href="/" className="nav-link" style={getLinkStyle('/')}>
                     <Home size={18} /> Início
                   </Link>
@@ -98,8 +98,8 @@ export default function RootLayout({ children }) {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 500 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 500, textAlign: 'center' }}>
                   Olá, <strong style={{ color: '#0f172a' }}>{user.name}</strong>
                 </span>
                 <button
