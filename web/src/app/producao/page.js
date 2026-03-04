@@ -500,7 +500,7 @@ export default function Producao() {
                         </button>
                     </div>
 
-                    <div className="hide-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', flex: 1, paddingRight: '0.5rem' }}>
+                    <div className="orders-list hide-scrollbar">
                         {orders.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.9rem' }}>Nenhum pedido pendente</div>
                         ) : (
@@ -510,6 +510,7 @@ export default function Producao() {
 
                                 return (
                                     <div key={order.id} style={{
+                                        flexShrink: 0, // Prevents cards from squishing under max-height constraints
                                         border: isSelected ? '2px solid #0ea5e9' : '1px solid #e2e8f0',
                                         borderRadius: '10px',
                                         overflow: 'hidden',
@@ -521,21 +522,23 @@ export default function Producao() {
                                             onClick={() => setSelectedOrderId(order.id)}
                                             style={{
                                                 background: isSelected ? '#f0f9ff' : '#fff',
-                                                padding: '1rem',
+                                                padding: '1.25rem 1rem', // Increased top/bottom padding
                                                 cursor: 'pointer',
-                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                gap: '1rem' // Added gap between text and chevron
                                             }}
                                         >
-                                            <div>
-                                                <div style={{ fontWeight: 600, color: '#334155', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                    Pedido #{order.orderNumber}
-                                                    {isOrderComplete && <CheckCircle2 size={16} color="#10b981" />}
+                                            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                                                <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                    <span style={{ wordBreak: 'break-word' }}>Pedido #{order.orderNumber}</span>
+                                                    {isOrderComplete && <CheckCircle2 size={16} color="#10b981" style={{ flexShrink: 0 }} />}
                                                 </div>
-                                                <div style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
-                                                    <User size={12} /> {order.client}
+                                                <div style={{ fontSize: '0.82rem', color: isSelected ? '#0369a1' : '#64748b', fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: '0.3rem', marginTop: '0.3rem' }}>
+                                                    <User size={13} style={{ flexShrink: 0, marginTop: '2px' }} />
+                                                    <span style={{ wordBreak: 'break-word', lineHeight: 1.3 }}>Cliente: {order.client || 'Nenhum'}</span>
                                                 </div>
                                             </div>
-                                            <ChevronRight size={18} color={isSelected ? '#0ea5e9' : '#94a3b8'} />
+                                            <ChevronRight size={18} color={isSelected ? '#0ea5e9' : '#94a3b8'} style={{ flexShrink: 0 }} />
                                         </div>
                                     </div>
                                 )

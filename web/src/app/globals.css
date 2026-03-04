@@ -420,6 +420,15 @@ textarea:focus {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
 }
 
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 0.5rem;
+}
+
 .producao-board {
   display: flex;
   flex-direction: column;
@@ -462,9 +471,16 @@ textarea:focus {
   .producao-sidebar {
     width: 100%;
     max-width: none;
-    max-height: 350px;
+    max-height: none;
     /* Leave room for the board below */
     flex-shrink: 0;
+  }
+
+  .orders-list {
+    max-height: 250px;
+    /* Keep only a few items visible, force scroll */
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.5rem;
   }
 
   .producao-board {
