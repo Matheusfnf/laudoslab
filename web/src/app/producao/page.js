@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText, Clipboard as ClipBoard } from 'lucide-react'
+import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText, Clipboard as ClipBoard, Layers } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -10,6 +10,13 @@ export default function Producao() {
     const [orders, setOrders] = useState([])
     const [batches, setBatches] = useState([]) // Kanban cards
     const [isLoading, setIsLoading] = useState(true)
+
+    const [catalogProducts, setCatalogProducts] = useState([])
+    const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false)
+    const [editingCatalogId, setEditingCatalogId] = useState(null)
+    const [newCatalogProduct, setNewCatalogProduct] = useState({
+        name: '', acronym: '', type: 'bacteria', shelf_life_months: 6, last_sequential_number: 0
+    })
 
     const [selectedOrderId, setSelectedOrderId] = useState(null)
     const [draggedItem, setDraggedItem] = useState(null) // Pode ser um product ou batch
@@ -56,6 +63,14 @@ export default function Producao() {
     const fetchData = async () => {
         try {
             setIsLoading(true)
+
+            // Fetch Catalog
+            const { data: catalogData, error: catalogError } = await supabase
+                .from('catalog_products')
+                .select('*')
+                .order('name', { ascending: true })
+            if (catalogError && catalogError.code !== '42P01') throw catalogError // ignore table missing if not created yet
+            setCatalogProducts(catalogData || [])
 
             // Fetch Orders
             const { data: ordersData, error: ordersError } = await supabase
@@ -141,6 +156,41 @@ export default function Producao() {
             }
         } finally {
             setIsLoading(false)
+        }
+    }
+
+    const handleSaveCatalogProduct = async () => {
+        if (!newCatalogProduct.name || !newCatalogProduct.acronym) {
+            alert("Nome e sigla são obrigatórios.")
+            return;
+        }
+        try {
+            if (editingCatalogId) {
+                const { error } = await supabase.from('catalog_products').update(newCatalogProduct).eq('id', editingCatalogId)
+                if (error) throw error
+            } else {
+                const { error } = await supabase.from('catalog_products').insert([newCatalogProduct])
+                if (error) throw error
+            }
+            const { data } = await supabase.from('catalog_products').select('*').order('name', { ascending: true })
+            setCatalogProducts(data || [])
+            setIsCatalogModalOpen(false)
+        } catch (error) {
+            console.error(error)
+            alert('Erro ao salvar produto no catálogo.')
+        }
+    }
+
+    const handleDeleteCatalogProduct = async (id) => {
+        if (!window.confirm("Deseja mesmo remover do catálogo? Os lotes e pedidos anteriores não serão afetados, mas este não aparecerá mais na lista.")) return;
+        try {
+            const { error } = await supabase.from('catalog_products').delete().eq('id', id)
+            if (error) throw error
+            const { data } = await supabase.from('catalog_products').select('*').order('name', { ascending: true })
+            setCatalogProducts(data || [])
+        } catch (error) {
+            console.error(error)
+            alert('Erro ao remover produto.')
         }
     }
 
@@ -396,20 +446,72 @@ export default function Producao() {
     // Modal Batches
     const handleOpenBatchModal = (orderId, item, initialStatus = 'in_progress') => {
         const remaining = item.quantityRequested - item.quantityProducedTotal
+
+        const catalogItem = catalogProducts.find(c => c.name === item.productName)
+        let initialBatchNumber = ''
+        let initialManufacture = new Date().toISOString().split('T')[0] // Hoje
+        let initialExpiration = ''
+
+        if (catalogItem) {
+            const today = new Date()
+            const month = String(today.getMonth() + 1).padStart(2, '0')
+            const year2Digit = String(today.getFullYear()).slice(-2)
+
+            // Lógica Sequencial (ex: 7 vira 08)
+            const nextSeqNumber = (catalogItem.last_sequential_number || 0) + 1
+            const formattedSeq = String(nextSeqNumber).padStart(2, '0')
+
+            initialBatchNumber = `${catalogItem.acronym}${formattedSeq}-${month}${year2Digit}`
+
+            const expDate = new Date(today)
+            expDate.setMonth(expDate.getMonth() + catalogItem.shelf_life_months)
+            initialExpiration = expDate.toISOString().split('T')[0]
+        }
+
         setNewBatch({
             orderId: orderId,
             itemId: item.id,
             productName: item.productName,
             unit: item.unit,
-            batchNumber: '',
+            batchNumber: initialBatchNumber,
             quantityProduced: remaining > 0 ? remaining : '',
-            manufactureDate: '',
-            expirationDate: '',
-            status: initialStatus
+            manufactureDate: initialManufacture,
+            expirationDate: initialExpiration,
+            status: initialStatus,
+            _suggestedBatchNumber: initialBatchNumber // guardamos para saber se ele aceitou a sugestão
         })
         setEditingBatchId(null)
         setIsBatchModalOpen(true)
     }
+
+    const handleManufactureDateChange = (dateString, currentProductName) => {
+        const catalogItem = catalogProducts.find(c => c.name === currentProductName)
+        if (!dateString || !catalogItem) {
+            setNewBatch(prev => ({ ...prev, manufactureDate: dateString }))
+            return;
+        }
+
+        const dateObj = new Date(dateString + 'T12:00:00') // evita fuso horário subtraindo 1 dia
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+        const year2Digit = String(dateObj.getFullYear()).slice(-2)
+
+        const nextSeqNumber = (catalogItem.last_sequential_number || 0) + 1
+        const formattedSeq = String(nextSeqNumber).padStart(2, '0')
+        const newBatchNumber = `${catalogItem.acronym}${formattedSeq}-${month}${year2Digit}`
+
+        const expDate = new Date(dateObj)
+        expDate.setMonth(expDate.getMonth() + catalogItem.shelf_life_months)
+        const newExpiration = expDate.toISOString().split('T')[0]
+
+        setNewBatch(prev => ({
+            ...prev,
+            manufactureDate: dateString,
+            batchNumber: newBatchNumber,
+            expirationDate: newExpiration,
+            _suggestedBatchNumber: newBatchNumber
+        }))
+    }
+
 
     const handleEditBatch = (batch) => {
         setNewBatch({
@@ -467,7 +569,7 @@ export default function Producao() {
                 if (error) throw error
             } else {
                 // CREATE new batch
-                const { error } = await supabase
+                const { error: insertError } = await supabase
                     .from('production_batches')
                     .insert([{
                         order_id: newBatch.orderId,
@@ -478,7 +580,21 @@ export default function Producao() {
                         expiration_date: newBatch.expirationDate || null,
                         status: newBatch.status || 'in_progress'
                     }])
-                if (error) throw error
+                if (insertError) throw insertError
+
+                // Lógica Sequencial: se o usuário usou o lote sugerido, incrementamos no banco para o próximo
+                if (newBatch._suggestedBatchNumber && newBatch.batchNumber === newBatch._suggestedBatchNumber) {
+                    const catalogItem = catalogProducts.find(c => c.name === newBatch.productName)
+                    if (catalogItem) {
+                        const newSeqNumber = (catalogItem.last_sequential_number || 0) + 1
+                        const { error: updateCatalogError } = await supabase
+                            .from('catalog_products')
+                            .update({ last_sequential_number: newSeqNumber })
+                            .eq('id', catalogItem.id)
+
+                        if (updateCatalogError) console.error("Erro ao incrementar sequencial no catálogo:", updateCatalogError)
+                    }
+                }
             }
 
             await fetchData()
@@ -517,11 +633,26 @@ export default function Producao() {
                     background: transparent;
                 }
             `}} />
-            <div className="header-actions" style={{ marginBottom: '1.5rem', flexShrink: 0 }}>
+            <div className="header-actions" style={{ marginBottom: '1.5rem', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 className="title-main">Painel de Produção</h1>
                     <p className="title-sub">Gerencie Pedidos dos clientes e divida-os em Lotes de produção</p>
                 </div>
+                <button
+                    onClick={() => {
+                        setNewCatalogProduct({ name: '', acronym: '', type: 'bacteria', shelf_life_months: 6 })
+                        setEditingCatalogId(null)
+                        setIsCatalogModalOpen(true)
+                    }}
+                    style={{
+                        background: '#fff', color: '#64748b', border: '1px solid #cbd5e1',
+                        padding: '0.6rem 1rem', borderRadius: '8px',
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                    }}
+                >
+                    <Layers size={18} /> Catálogo de Produtos
+                </button>
             </div>
 
             <div className="producao-container">
@@ -859,6 +990,59 @@ export default function Producao() {
                 </div>
             </div>
 
+            {/* MODAL GERENCIAR CATÁLOGO */}
+            {isCatalogModalOpen && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+                    <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', position: 'relative' }}>
+                        <button onClick={() => { setIsCatalogModalOpen(false); setEditingCatalogId(null) }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8e8e93', padding: '0.5rem' }}>
+                            <X size={20} />
+                        </button>
+                        <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.6rem' }}><Layers size={24} color="#0ea5e9" /> Gerenciar Catálogo</h2>
+
+                        <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', border: '1px solid #e2e8f0' }}>
+                            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>{editingCatalogId ? 'Editar Produto' : 'Adicionar Novo Produto'}</h3>
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                <div style={{ flex: '2 1 200px' }}><label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nome Completo *</label><input type="text" value={newCatalogProduct.name} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, name: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="Ex: Trichoderma asperellum" /></div>
+                                <div style={{ flex: '1 1 100px' }}><label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Sigla *</label><input type="text" value={newCatalogProduct.acronym} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, acronym: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="Ex: TR-A" /></div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginTop: '1rem' }}>
+                                <div style={{ flex: '1 1 120px' }}>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Grupo</label>
+                                    <select value={newCatalogProduct.type} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, type: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}>
+                                        <option value="bacteria">Bactéria</option>
+                                        <option value="fungus">Fungo</option>
+                                        <option value="other">Outro</option>
+                                    </select>
+                                </div>
+                                <div style={{ flex: '1 1 100px' }}><label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Validade (Meses)</label><input type="number" value={newCatalogProduct.shelf_life_months} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, shelf_life_months: parseInt(e.target.value) || 0 })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
+                                <div style={{ flex: '1 1 100px' }}><label style={{ fontSize: '0.8rem', fontWeight: 600 }} title="Último numeral gerado (ex: 7). O próximo lote será 08.">Contagem (Lote)</label><input type="number" value={newCatalogProduct.last_sequential_number} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, last_sequential_number: parseInt(e.target.value) || 0 })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
+                                <button onClick={handleSaveCatalogProduct} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, height: '40px' }}>{editingCatalogId ? 'Salvar Edição' : 'Adicionar'}</button>
+                                {editingCatalogId && <button onClick={() => { setEditingCatalogId(null); setNewCatalogProduct({ name: '', acronym: '', type: 'bacteria', shelf_life_months: 6, last_sequential_number: 0 }) }} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, height: '40px' }}>Cancelar</button>}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>Produtos Cadastrados ({catalogProducts.length})</h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '400px', overflowY: 'auto' }} className="hide-scrollbar">
+                                {catalogProducts.map(p => (
+                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                        <div>
+                                            <div style={{ fontWeight: 600, color: '#1e293b' }}>{p.name} <span style={{ color: '#0ea5e9', fontSize: '0.9rem', marginLeft: '0.5rem' }}>{p.acronym}</span></div>
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{p.type === 'bacteria' ? '🦠 Bactéria' : p.type === 'fungus' ? '🍄 Fungo' : '📦 Outro'} • Validade: {p.shelf_life_months} meses • Contagem atual: {p.last_sequential_number || 0}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <button onClick={() => { setEditingCatalogId(p.id); setNewCatalogProduct({ name: p.name, acronym: p.acronym, type: p.type, shelf_life_months: p.shelf_life_months, last_sequential_number: p.last_sequential_number || 0 }) }} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}><Edit2 size={16} /></button>
+                                            <button onClick={() => handleDeleteCatalogProduct(p.id)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '4px' }}><Trash2 size={16} /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {catalogProducts.length === 0 && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem' }}>Nenhum produto cadastrado no catálogo.</div>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* MODAL NOVO PEDIDO */}
             {
                 isOrderModalOpen && (
@@ -920,7 +1104,15 @@ export default function Producao() {
                             <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', marginTop: '1.5rem', border: '1px solid #e2e8f0' }}>
                                 <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>Produtos Solicitados</h3>
                                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                                    <div style={{ flex: '2 1 min-content', minWidth: '150px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Produto</label><input type="text" value={currentItem.productName} onChange={e => setCurrentItem({ ...currentItem, productName: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
+                                    <div style={{ flex: '2 1 min-content', minWidth: '150px' }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Produto</label>
+                                        <select value={currentItem.productName} onChange={e => setCurrentItem({ ...currentItem, productName: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}>
+                                            <option value="" disabled>Selecione um produto</option>
+                                            {catalogProducts.map(cp => (
+                                                <option key={cp.id} value={cp.name}>{cp.name} ({cp.acronym})</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                     <div style={{ flex: '1 1 auto', minWidth: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Qtd Total</label><input type="number" value={currentItem.quantity} onChange={e => setCurrentItem({ ...currentItem, quantity: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
                                     <div style={{ flex: '1 1 auto', width: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>UN</label><select value={currentItem.unit} onChange={e => setCurrentItem({ ...currentItem, unit: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}><option value="UN">UN</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
                                     <button onClick={handleAddOrderItem} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, width: '100%', marginTop: '0.5rem' }}>Add</button>
@@ -978,7 +1170,7 @@ export default function Producao() {
                             </div>
 
                             <div className="form-group" style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-                                <div style={{ flex: '1 1 min-content' }}><label>Data Fabricação</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.manufactureDate} onChange={e => setNewBatch({ ...newBatch, manufactureDate: e.target.value })} /></div>
+                                <div style={{ flex: '1 1 min-content' }}><label>Data Fabricação</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.manufactureDate} onChange={e => handleManufactureDateChange(e.target.value, newBatch.productName)} /></div>
                                 <div style={{ flex: '1 1 min-content' }}><label>Data Vencimento</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.expirationDate} onChange={e => setNewBatch({ ...newBatch, expirationDate: e.target.value })} /></div>
                             </div>
 
