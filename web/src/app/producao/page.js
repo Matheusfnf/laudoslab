@@ -692,10 +692,10 @@ export default function Producao() {
                                                 boxShadow: isOver ? `0 0 15px ${col.color}33` : 'none',
                                             }}
                                         >
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexShrink: 0 }}>
-                                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1.1rem', fontWeight: 700, color: '#1a1a1a' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexShrink: 0, gap: '0.5rem' }}>
+                                                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>
                                                     {col.icon}
-                                                    {col.title}
+                                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{col.title}</span>
                                                 </h3>
                                                 <span style={{
                                                     background: 'rgba(255,255,255,0.8)',
@@ -704,6 +704,7 @@ export default function Producao() {
                                                     fontSize: '0.85rem',
                                                     fontWeight: 700,
                                                     color: col.color,
+                                                    flexShrink: 0
                                                 }}>
                                                     {itemCount}
                                                 </span>
@@ -859,157 +860,163 @@ export default function Producao() {
             </div>
 
             {/* MODAL NOVO PEDIDO */}
-            {isOrderModalOpen && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
-                    <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', position: 'relative' }}>
-                        <button onClick={() => { setIsOrderModalOpen(false); setEditingOrderId(null) }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8e8e93', padding: '0.5rem' }}>
-                            <X size={20} />
-                        </button>
-
-                        <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700 }}>
-                            {editingOrderId ? 'Editar Pedido' : 'Cadastrar Novo Pedido'}
-                        </h2>
-
-                        <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                            <div style={{ flex: '1 1 min-content' }}>
-                                <label>Número do Pedido *</label>
-                                <input type="text" placeholder="Ex: 10045" value={newOrder.orderNumber} onChange={e => setNewOrder({ ...newOrder, orderNumber: e.target.value })} />
-                            </div>
-                            <div style={{ flex: '2 1 min-content' }}>
-                                <label>Cliente *</label>
-                                <input type="text" placeholder="Nome do Cliente" value={newOrder.client} onChange={e => setNewOrder({ ...newOrder, client: e.target.value })} />
-                            </div>
-                        </div>
-
-                        <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                            <div style={{ flex: '2 1 min-content' }}>
-                                <label>Solicitante</label>
-                                <input type="text" placeholder="Quem fez o pedido?" value={newOrder.requesterName} onChange={e => setNewOrder({ ...newOrder, requesterName: e.target.value })} />
-                            </div>
-                            <div style={{ flex: '1 1 min-content' }}>
-                                <label>Data do Pedido</label>
-                                <input type="date" value={newOrder.orderDate} onChange={e => setNewOrder({ ...newOrder, orderDate: e.target.value })} />
-                            </div>
-                            <div style={{ flex: '1 1 min-content' }}>
-                                <label>Previsão Conclusão</label>
-                                <input type="date" value={newOrder.estimatedCompletionDate} onChange={e => setNewOrder({ ...newOrder, estimatedCompletionDate: e.target.value })} />
-                            </div>
-                        </div>
-
-                        <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                            <label>Comprovante do Pedido (Opcional)</label>
-                            {newOrder.receiptImageUrl && !newOrder.receiptImage && (
-                                <div style={{ fontSize: '0.85rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                    <CheckCircle2 size={16} /> Comprovante já anexado. Envie outro para substituir.
-                                </div>
-                            )}
-                            <input
-                                type="file"
-                                accept="image/*,application/pdf"
-                                onChange={e => {
-                                    if (e.target.files && e.target.files.length > 0) {
-                                        setNewOrder({ ...newOrder, receiptImage: e.target.files[0] })
-                                    }
-                                }}
-                                style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '8px', width: '100%', background: '#f8fafc' }}
-                            />
-                        </div>
-
-                        <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', marginTop: '1.5rem', border: '1px solid #e2e8f0' }}>
-                            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>Produtos Solicitados</h3>
-                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                                <div style={{ flex: '2 1 min-content', minWidth: '150px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Produto</label><input type="text" value={currentItem.productName} onChange={e => setCurrentItem({ ...currentItem, productName: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
-                                <div style={{ flex: '1 1 auto', minWidth: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Qtd Total</label><input type="number" value={currentItem.quantity} onChange={e => setCurrentItem({ ...currentItem, quantity: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
-                                <div style={{ flex: '1 1 auto', width: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>UN</label><select value={currentItem.unit} onChange={e => setCurrentItem({ ...currentItem, unit: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}><option value="UN">UN</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
-                                <button onClick={handleAddOrderItem} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, width: '100%', marginTop: '0.5rem' }}>Add</button>
-                            </div>
-
-                            {newOrder.items.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    {newOrder.items.map(item => (
-                                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                            <div style={{ fontSize: '0.85rem' }}><strong style={{ color: '#0ea5e9' }}>{item.quantity} {item.unit}</strong> • {item.productName}</div>
-                                            <button onClick={() => handleRemoveOrderItem(item.id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>Adicione os produtos do pedido</div>}
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-                            <button className="btn btn-secondary" onClick={() => { setIsOrderModalOpen(false); setEditingOrderId(null) }}>Cancelar</button>
-                            <button className="btn btn-primary" onClick={handleSaveOrder}>
-                                {editingOrderId ? 'Salvar Alterações' : 'Cadastrar Pedido'}
+            {
+                isOrderModalOpen && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+                        <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '2rem', position: 'relative' }}>
+                            <button onClick={() => { setIsOrderModalOpen(false); setEditingOrderId(null) }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8e8e93', padding: '0.5rem' }}>
+                                <X size={20} />
                             </button>
+
+                            <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700 }}>
+                                {editingOrderId ? 'Editar Pedido' : 'Cadastrar Novo Pedido'}
+                            </h2>
+
+                            <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                <div style={{ flex: '1 1 min-content' }}>
+                                    <label>Número do Pedido *</label>
+                                    <input type="text" placeholder="Ex: 10045" value={newOrder.orderNumber} onChange={e => setNewOrder({ ...newOrder, orderNumber: e.target.value })} />
+                                </div>
+                                <div style={{ flex: '2 1 min-content' }}>
+                                    <label>Cliente *</label>
+                                    <input type="text" placeholder="Nome do Cliente" value={newOrder.client} onChange={e => setNewOrder({ ...newOrder, client: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                <div style={{ flex: '2 1 min-content' }}>
+                                    <label>Solicitante</label>
+                                    <input type="text" placeholder="Quem fez o pedido?" value={newOrder.requesterName} onChange={e => setNewOrder({ ...newOrder, requesterName: e.target.value })} />
+                                </div>
+                                <div style={{ flex: '1 1 min-content' }}>
+                                    <label>Data do Pedido</label>
+                                    <input type="date" value={newOrder.orderDate} onChange={e => setNewOrder({ ...newOrder, orderDate: e.target.value })} />
+                                </div>
+                                <div style={{ flex: '1 1 min-content' }}>
+                                    <label>Previsão Conclusão</label>
+                                    <input type="date" value={newOrder.estimatedCompletionDate} onChange={e => setNewOrder({ ...newOrder, estimatedCompletionDate: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label>Comprovante do Pedido (Opcional)</label>
+                                {newOrder.receiptImageUrl && !newOrder.receiptImage && (
+                                    <div style={{ fontSize: '0.85rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                        <CheckCircle2 size={16} /> Comprovante já anexado. Envie outro para substituir.
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    onChange={e => {
+                                        if (e.target.files && e.target.files.length > 0) {
+                                            setNewOrder({ ...newOrder, receiptImage: e.target.files[0] })
+                                        }
+                                    }}
+                                    style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '8px', width: '100%', background: '#f8fafc' }}
+                                />
+                            </div>
+
+                            <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', marginTop: '1.5rem', border: '1px solid #e2e8f0' }}>
+                                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>Produtos Solicitados</h3>
+                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                                    <div style={{ flex: '2 1 min-content', minWidth: '150px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Produto</label><input type="text" value={currentItem.productName} onChange={e => setCurrentItem({ ...currentItem, productName: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
+                                    <div style={{ flex: '1 1 auto', minWidth: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Qtd Total</label><input type="number" value={currentItem.quantity} onChange={e => setCurrentItem({ ...currentItem, quantity: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
+                                    <div style={{ flex: '1 1 auto', width: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>UN</label><select value={currentItem.unit} onChange={e => setCurrentItem({ ...currentItem, unit: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}><option value="UN">UN</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
+                                    <button onClick={handleAddOrderItem} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, width: '100%', marginTop: '0.5rem' }}>Add</button>
+                                </div>
+
+                                {newOrder.items.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        {newOrder.items.map(item => (
+                                            <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                <div style={{ fontSize: '0.85rem' }}><strong style={{ color: '#0ea5e9' }}>{item.quantity} {item.unit}</strong> • {item.productName}</div>
+                                                <button onClick={() => handleRemoveOrderItem(item.id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>Adicione os produtos do pedido</div>}
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
+                                <button className="btn btn-secondary" onClick={() => { setIsOrderModalOpen(false); setEditingOrderId(null) }}>Cancelar</button>
+                                <button className="btn btn-primary" onClick={handleSaveOrder}>
+                                    {editingOrderId ? 'Salvar Alterações' : 'Cadastrar Pedido'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* MODAL NOVO LOTE */}
-            {isBatchModalOpen && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
-                    <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '500px', padding: '2rem', position: 'relative' }}>
-                        <button onClick={() => { setIsBatchModalOpen(false); setEditingBatchId(null) }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8e8e93', padding: '0.5rem' }}>
-                            <X size={20} />
-                        </button>
+            {
+                isBatchModalOpen && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+                        <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '500px', padding: '2rem', position: 'relative' }}>
+                            <button onClick={() => { setIsBatchModalOpen(false); setEditingBatchId(null) }} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8e8e93', padding: '0.5rem' }}>
+                                <X size={20} />
+                            </button>
 
-                        <h2 style={{ marginBottom: '0.5rem', fontSize: '1.3rem', fontWeight: 700 }}>
-                            {editingBatchId ? 'Editar Lote de Produção' : 'Separar Lote para Produção'}
-                        </h2>
-                        <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Produto: <strong style={{ color: '#1e293b' }}>{newBatch.productName}</strong></p>
+                            <h2 style={{ marginBottom: '0.5rem', fontSize: '1.3rem', fontWeight: 700 }}>
+                                {editingBatchId ? 'Editar Lote de Produção' : 'Separar Lote para Produção'}
+                            </h2>
+                            <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>Produto: <strong style={{ color: '#1e293b' }}>{newBatch.productName}</strong></p>
 
-                        <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                            <div style={{ flex: '2 1 min-content' }}>
-                                <label>Número do Lote *</label>
-                                <input type="text" placeholder="Ex: Lote 001" value={newBatch.batchNumber} onChange={e => setNewBatch({ ...newBatch, batchNumber: e.target.value })} />
-                            </div>
-                            <div style={{ flex: '1 1 min-content' }}>
-                                <label>Qtd. Lote *</label>
-                                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
-                                    <input type="number" style={{ border: 'none', borderRadius: 0, width: '100%' }} value={newBatch.quantityProduced} onChange={e => setNewBatch({ ...newBatch, quantityProduced: e.target.value })} />
-                                    <span style={{ padding: '0 10px', background: '#f8fafc', color: '#64748b', fontSize: '0.8rem', fontWeight: 600 }}>{newBatch.unit}</span>
+                            <div className="form-group" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                <div style={{ flex: '2 1 min-content' }}>
+                                    <label>Número do Lote *</label>
+                                    <input type="text" placeholder="Ex: Lote 001" value={newBatch.batchNumber} onChange={e => setNewBatch({ ...newBatch, batchNumber: e.target.value })} />
+                                </div>
+                                <div style={{ flex: '1 1 min-content' }}>
+                                    <label>Qtd. Lote *</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '10px', overflow: 'hidden' }}>
+                                        <input type="number" style={{ border: 'none', borderRadius: 0, width: '100%' }} value={newBatch.quantityProduced} onChange={e => setNewBatch({ ...newBatch, quantityProduced: e.target.value })} />
+                                        <span style={{ padding: '0 10px', background: '#f8fafc', color: '#64748b', fontSize: '0.8rem', fontWeight: 600 }}>{newBatch.unit}</span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="form-group" style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-                            <div style={{ flex: '1 1 min-content' }}><label>Data Fabricação</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.manufactureDate} onChange={e => setNewBatch({ ...newBatch, manufactureDate: e.target.value })} /></div>
-                            <div style={{ flex: '1 1 min-content' }}><label>Data Vencimento</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.expirationDate} onChange={e => setNewBatch({ ...newBatch, expirationDate: e.target.value })} /></div>
-                        </div>
+                            <div className="form-group" style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                                <div style={{ flex: '1 1 min-content' }}><label>Data Fabricação</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.manufactureDate} onChange={e => setNewBatch({ ...newBatch, manufactureDate: e.target.value })} /></div>
+                                <div style={{ flex: '1 1 min-content' }}><label>Data Vencimento</label><input type="date" style={{ width: '100%', padding: '0.85rem', borderRadius: '10px', border: '1px solid var(--border-color)' }} value={newBatch.expirationDate} onChange={e => setNewBatch({ ...newBatch, expirationDate: e.target.value })} /></div>
+                            </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-                            <button className="btn btn-secondary" onClick={() => { setIsBatchModalOpen(false); setEditingBatchId(null) }}>Cancelar</button>
-                            <button className="btn btn-primary" onClick={handleSaveBatch}>
-                                {editingBatchId ? 'Salvar Lote' : 'Gerar Lote no Kanban'}
-                            </button>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
+                                <button className="btn btn-secondary" onClick={() => { setIsBatchModalOpen(false); setEditingBatchId(null) }}>Cancelar</button>
+                                <button className="btn btn-primary" onClick={handleSaveBatch}>
+                                    {editingBatchId ? 'Salvar Lote' : 'Gerar Lote no Kanban'}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
             {/* MODAL PREVIEW IMAGEM */}
-            {imagePreviewUrl && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
-                    <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
-                        <button
-                            onClick={() => setImagePreviewUrl(null)}
-                            style={{ position: 'absolute', top: '-40px', right: 0, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer' }}
-                        >
-                            <X size={24} />
-                        </button>
-                        <img
-                            src={imagePreviewUrl}
-                            alt="Comprovante do Pedido"
-                            style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
-                        />
-                        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                            <a href={imagePreviewUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#bae6fd', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
-                                ↗ Abrir Original
-                            </a>
+            {
+                imagePreviewUrl && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
+                        <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
+                            <button
+                                onClick={() => setImagePreviewUrl(null)}
+                                style={{ position: 'absolute', top: '-40px', right: 0, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer' }}
+                            >
+                                <X size={24} />
+                            </button>
+                            <img
+                                src={imagePreviewUrl}
+                                alt="Comprovante do Pedido"
+                                style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                            />
+                            <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                                <a href={imagePreviewUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#bae6fd', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
+                                    ↗ Abrir Original
+                                </a>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     )
 }
