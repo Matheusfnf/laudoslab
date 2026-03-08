@@ -461,7 +461,7 @@ export default function Producao() {
             const nextSeqNumber = (catalogItem.last_sequential_number || 0) + 1
             const formattedSeq = String(nextSeqNumber).padStart(2, '0')
 
-            initialBatchNumber = `${catalogItem.acronym}${formattedSeq}-${month}${year2Digit}`
+            initialBatchNumber = `${catalogItem.acronym.replace(/-/g, '')}${formattedSeq}-${month}${year2Digit}`
 
             const expDate = new Date(today)
             expDate.setMonth(expDate.getMonth() + catalogItem.shelf_life_months)
@@ -497,7 +497,7 @@ export default function Producao() {
 
         const nextSeqNumber = (catalogItem.last_sequential_number || 0) + 1
         const formattedSeq = String(nextSeqNumber).padStart(2, '0')
-        const newBatchNumber = `${catalogItem.acronym}${formattedSeq}-${month}${year2Digit}`
+        const newBatchNumber = `${catalogItem.acronym.replace(/-/g, '')}${formattedSeq}-${month}${year2Digit}`
 
         const expDate = new Date(dateObj)
         expDate.setMonth(expDate.getMonth() + catalogItem.shelf_life_months)
