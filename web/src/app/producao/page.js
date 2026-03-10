@@ -31,6 +31,7 @@ export default function Producao() {
     const [isBatchModalOpen, setIsBatchModalOpen] = useState(false)
     const [imagePreviewUrl, setImagePreviewUrl] = useState(null)
     const [openDropdownId, setOpenDropdownId] = useState(null) // State para controlar o menu dropdown aberto
+    const [activeTab, setActiveTab] = useState('active') // 'active' ou 'completed'
 
     // Form state for Order
     const [newOrder, setNewOrder] = useState({
@@ -530,6 +531,40 @@ export default function Producao() {
         setIsBatchModalOpen(true)
     }
 
+    const handleCompleteOrder = async () => {
+        if (!selectedOrderId) return;
+
+        const currentOrder = orders.find(o => o.id === selectedOrderId);
+        if (!currentOrder) return;
+
+        const isFullyProduced = currentOrder.items.length === 0 || currentOrder.items.every(i => i.quantityCompleted >= i.quantityRequested);
+        if (!isFullyProduced) {
+            alert("Não é possível concluir. Todos os produtos precisam ter seus lotes finalizados com a quantidade solicitada.");
+            return;
+        }
+
+        if (!window.confirm("Deseja realmente marcar este pedido como concluído? Ele será movido para a aba de Concluídos.")) return;
+        try {
+            const { error } = await supabase.from('production_orders').update({ status: 'completed' }).eq('id', selectedOrderId)
+            if (error) throw error
+            await fetchData()
+            setSelectedOrderId(null)
+            setActiveTab('completed')
+        } catch (e) { console.error(e); alert('Erro ao concluir pedido') }
+    }
+
+    const handleReopenOrder = async () => {
+        if (!selectedOrderId) return;
+        if (!window.confirm("Deseja reabrir este pedido? Ele voltará para a aba de Em Andamento.")) return;
+        try {
+            const { error } = await supabase.from('production_orders').update({ status: 'pending' }).eq('id', selectedOrderId)
+            if (error) throw error
+            await fetchData()
+            setSelectedOrderId(null)
+            setActiveTab('active')
+        } catch (e) { console.error(e); alert('Erro ao reabrir pedido') }
+    }
+
     const handleDeleteBatch = async (batch) => {
         const confirmDelete = window.confirm(`ATENÇÃO: Você está prestes a excluir o lote ${batch.batchNumber} (${batch.quantityProduced} ${batch.unit}).\\nA quantidade devolvida voltará a ficar "Pendente".\\nDeseja continuar?`)
         if (!confirmDelete) return;
@@ -771,6 +806,10 @@ export default function Producao() {
             </div>
         )
     }
+
+    const currentSelectedOrder = orders.find(o => o.id === selectedOrderId);
+    const canCompleteOrder = currentSelectedOrder ? (currentSelectedOrder.items.length === 0 || currentSelectedOrder.items.every(i => i.quantityCompleted >= i.quantityRequested)) : false;
+
     return (
         <div style={{ animation: 'fadeIn 0.5s ease', paddingBottom: '0.5rem', height: 'calc(100vh - 135px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <style dangerouslySetInnerHTML={{
@@ -785,57 +824,76 @@ export default function Producao() {
                     background: transparent;
                 }
             `}} />
-            <div className="header-actions" style={{ marginBottom: '1.5rem', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                    <h1 className="title-main">Painel de Produção</h1>
-                    <p className="title-sub">Gerencie Pedidos dos clientes e divida-os em Lotes de produção</p>
-                </div>
-                <button
-                    onClick={() => {
-                        setNewCatalogProduct({ name: '', acronym: '', type: 'bacteria', shelf_life_months: 6 })
-                        setEditingCatalogId(null)
-                        setIsCatalogModalOpen(true)
-                    }}
-                    style={{
-                        background: '#fff', color: '#64748b', border: '1px solid #cbd5e1',
-                        padding: '0.6rem 1rem', borderRadius: '8px',
-                        display: 'flex', alignItems: 'center', gap: '0.5rem',
-                        fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                    }}
-                >
-                    <Layers size={18} /> Catálogo de Produtos
-                </button>
-            </div>
+
 
             <div className="producao-container">
 
                 {/* SIDEBAR: PEDIDOS */}
                 <div className="producao-sidebar">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Pedidos</h2>
+                    <div style={{ marginBottom: '1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>Painel de Produção</h2>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                    onClick={() => {
+                                        setNewCatalogProduct({ name: '', acronym: '', type: 'bacteria', shelf_life_months: 6 })
+                                        setEditingCatalogId(null)
+                                        setIsCatalogModalOpen(true)
+                                    }}
+                                    style={{
+                                        background: '#fff', color: '#64748b', border: '1px solid #cbd5e1',
+                                        padding: '0.4rem 0.6rem', borderRadius: '8px',
+                                        display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                        fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                                    }}
+                                    title="Catálogo de Produtos"
+                                >
+                                    <Layers size={15} /> Catálogo
+                                </button>
+                                {activeTab === 'active' && (
+                                    <button
+                                        onClick={() => {
+                                            setEditingOrderId(null)
+                                            setNewOrder({ orderNumber: '', client: '', items: [] })
+                                            setCurrentItem({ productName: '', quantity: '', unit: 'UN' })
+                                            setIsOrderModalOpen(true)
+                                        }}
+                                        style={{
+                                            background: '#0ea5e9', color: '#fff', border: 'none',
+                                            padding: '0.4rem 0.6rem', borderRadius: '8px',
+                                            display: 'flex', alignItems: 'center', gap: '0.3rem',
+                                            fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', boxShadow: '0 2px 4px rgba(14, 165, 233, 0.2)'
+                                        }}
+                                        title="Novo Pedido"
+                                    >
+                                        <PlusCircle size={15} /> Novo
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>Gerencie pedidos e divida-os em lotes.</p>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', background: '#f1f5f9', padding: '0.3rem', borderRadius: '10px' }}>
                         <button
-                            onClick={() => {
-                                setEditingOrderId(null)
-                                setNewOrder({ orderNumber: '', client: '', items: [] })
-                                setCurrentItem({ productName: '', quantity: '', unit: 'UN' })
-                                setIsOrderModalOpen(true)
-                            }}
-                            style={{
-                                background: '#0ea5e9', color: '#fff', border: 'none',
-                                padding: '0.5rem 0.8rem', borderRadius: '8px',
-                                display: 'flex', alignItems: 'center', gap: '0.4rem',
-                                fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer'
-                            }}
+                            onClick={() => { setActiveTab('active'); setSelectedOrderId(null) }}
+                            style={{ flex: 1, padding: '0.5rem', background: activeTab === 'active' ? '#fff' : 'transparent', color: activeTab === 'active' ? '#0ea5e9' : '#64748b', fontWeight: 600, border: 'none', borderRadius: '8px', boxShadow: activeTab === 'active' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.85rem' }}
                         >
-                            <PlusCircle size={16} /> Novo
+                            Em Andamento
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('completed'); setSelectedOrderId(null) }}
+                            style={{ flex: 1, padding: '0.5rem', background: activeTab === 'completed' ? '#fff' : 'transparent', color: activeTab === 'completed' ? '#10b981' : '#64748b', fontWeight: 600, border: 'none', borderRadius: '8px', boxShadow: activeTab === 'completed' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.85rem' }}
+                        >
+                            Concluídos
                         </button>
                     </div>
 
                     <div className="orders-list hide-scrollbar">
-                        {orders.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.9rem' }}>Nenhum pedido pendente</div>
+                        {orders.filter(o => activeTab === 'completed' ? o.status === 'completed' : o.status !== 'completed').length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.9rem' }}>Nenhum pedido {activeTab === 'completed' ? 'concluído' : 'pendente'}</div>
                         ) : (
-                            orders.map(order => {
+                            orders.filter(o => activeTab === 'completed' ? o.status === 'completed' : o.status !== 'completed').map(order => {
                                 const isSelected = selectedOrderId === order.id;
                                 const isOrderComplete = order.items.every(i => i.quantityCompleted >= i.quantityRequested)
 
@@ -897,58 +955,80 @@ export default function Producao() {
                     ) : (
                         <>
                             {/* Selected Order Header */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', background: '#fff', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', flexShrink: 0, gap: '1.5rem', flexWrap: 'wrap' }}>
-                                <div style={{ flex: '1 1 min-content' }}>
-                                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0ea5e9', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 0 0.5rem 0' }}>
-                                        Pedido Selecionado: #{orders.find(o => o.id === selectedOrderId)?.orderNumber}
+                            <div style={{ display: 'flex', flexDirection: 'column', background: '#fff', padding: '0.8rem 1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)', flexShrink: 0, gap: '0.6rem' }}>
+                                {/* Linha 1: Título + Botões */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                                    <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0ea5e9', margin: 0, whiteSpace: 'nowrap' }}>
+                                        Pedido #{orders.find(o => o.id === selectedOrderId)?.orderNumber}
                                     </h2>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                            <User size={15} color="#0ea5e9" /> <strong style={{ color: '#334155' }}>Cliente:</strong> {orders.find(o => o.id === selectedOrderId)?.client}
-                                        </span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                            <User size={15} /> <strong>Solicitante:</strong> {orders.find(o => o.id === selectedOrderId)?.requesterName || '-'}
-                                        </span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                            <Calendar size={15} /> <strong>Pedido:</strong> {formatDateForDisplay(orders.find(o => o.id === selectedOrderId)?.orderDate) || '-'}
-                                        </span>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                            <Calendar size={15} color="#f59e0b" /> <strong style={{ color: '#f59e0b' }}>Prev:</strong> {formatDateForDisplay(orders.find(o => o.id === selectedOrderId)?.estimatedCompletionDate) || '-'}
-                                        </span>
-                                    </div>
-
-                                    {orders.find(o => o.id === selectedOrderId)?.receiptImageUrl && (
-                                        <div style={{ marginTop: '0.8rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                        {activeTab === 'completed' ? (
                                             <button
-                                                onClick={() => setImagePreviewUrl(orders.find(o => o.id === selectedOrderId)?.receiptImageUrl)}
-                                                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                                                onClick={handleReopenOrder}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f59e0b', color: '#fff', border: 'none', padding: '0.45rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(245, 158, 11, 0.2)' }}
+                                                onMouseOver={e => { e.currentTarget.style.background = '#d97706' }}
+                                                onMouseOut={e => { e.currentTarget.style.background = '#f59e0b' }}
                                             >
-                                                <ClipBoard size={14} /> Ver Comprovante / Caderno
+                                                <Edit2 size={14} /> Reabrir Pedido
                                             </button>
-                                        </div>
-                                    )}
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={handleCompleteOrder}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: canCompleteOrder ? '#10b981' : '#cbd5e1', color: '#fff', border: 'none', padding: '0.45rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: canCompleteOrder ? 'pointer' : 'not-allowed', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
+                                                    onMouseOver={e => { if (canCompleteOrder) e.currentTarget.style.background = '#059669' }}
+                                                    onMouseOut={e => { if (canCompleteOrder) e.currentTarget.style.background = '#10b981' }}
+                                                    title={canCompleteOrder ? "Concluir Pedido" : "Finalize todos os lotes antes de concluir"}
+                                                >
+                                                    <CheckCircle2 size={14} /> Concluir Pedido
+                                                </button>
+                                                <button
+                                                    onClick={handleEditOrder}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '0.45rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                                                    onMouseOver={e => { e.currentTarget.style.color = '#0ea5e9'; e.currentTarget.style.borderColor = '#0ea5e9' }}
+                                                    onMouseOut={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#cbd5e1' }}
+                                                >
+                                                    <Edit2 size={14} /> Editar
+                                                </button>
+                                                <button
+                                                    onClick={handleDeleteOrder}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'transparent', color: '#ef4444', border: '1px solid #fca5a5', padding: '0.45rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                                                    onMouseOver={e => { e.currentTarget.style.background = '#fef2f2' }}
+                                                    onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+                                                >
+                                                    <Trash2 size={14} /> Excluir
+                                                </button>
+                                            </>
+                                        )}
+                                        <div style={{ width: '1px', height: '24px', background: '#e2e8f0', margin: '0 0.2rem' }} />
+                                        <button onClick={() => setSelectedOrderId(null)} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.45rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
+                                            Limpar Seleção
+                                        </button>
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
-                                    <button
-                                        onClick={handleEditOrder}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', padding: '0.5rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
-                                        onMouseOver={e => { e.currentTarget.style.color = '#0ea5e9'; e.currentTarget.style.borderColor = '#0ea5e9' }}
-                                        onMouseOut={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#cbd5e1' }}
-                                    >
-                                        <Edit2 size={14} /> Editar
-                                    </button>
-                                    <button
-                                        onClick={handleDeleteOrder}
-                                        style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'transparent', color: '#ef4444', border: '1px solid #fca5a5', padding: '0.5rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
-                                        onMouseOver={e => { e.currentTarget.style.background = '#fef2f2' }}
-                                        onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
-                                    >
-                                        <Trash2 size={14} /> Excluir
-                                    </button>
-                                    <div style={{ width: '1px', height: '24px', background: '#e2e8f0', margin: '0 0.5rem' }} className="responsive-divider"></div>
-                                    <button onClick={() => setSelectedOrderId(null)} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
-                                        Limpar Seleção
-                                    </button>
+
+                                {/* Linha 2: Pills horizontais */}
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', fontSize: '0.82rem', color: '#64748b' }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#f8fafc', padding: '0.2rem 0.6rem', borderRadius: '20px', border: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                                        <User size={13} color="#0ea5e9" /> <strong style={{ color: '#334155' }}>Cliente:</strong> {orders.find(o => o.id === selectedOrderId)?.client}
+                                    </span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#f8fafc', padding: '0.2rem 0.6rem', borderRadius: '20px', border: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                                        <User size={13} /> <strong>Solc.:</strong> {orders.find(o => o.id === selectedOrderId)?.requesterName || '-'}
+                                    </span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#f8fafc', padding: '0.2rem 0.6rem', borderRadius: '20px', border: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                                        <Calendar size={13} /> <strong>Ped.:</strong> {formatDateForDisplay(orders.find(o => o.id === selectedOrderId)?.orderDate) || '-'}
+                                    </span>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fffbeb', padding: '0.2rem 0.6rem', borderRadius: '20px', border: '1px solid #fde68a', whiteSpace: 'nowrap' }}>
+                                        <Calendar size={13} color="#f59e0b" /> <strong style={{ color: '#f59e0b' }}>Prev:</strong> {formatDateForDisplay(orders.find(o => o.id === selectedOrderId)?.estimatedCompletionDate) || '-'}
+                                    </span>
+                                    {orders.find(o => o.id === selectedOrderId)?.receiptImageUrl && (
+                                        <button
+                                            onClick={() => setImagePreviewUrl(orders.find(o => o.id === selectedOrderId)?.receiptImageUrl)}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                        >
+                                            <ClipBoard size={13} /> Comprovante
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -1018,14 +1098,14 @@ export default function Producao() {
 
                                                         return (
                                                             <div key={item.id}
-                                                                draggable
-                                                                onDragStart={(e) => handleDragStart(e, item, 'product')}
-                                                                onDragEnd={() => setDraggedItem(null)}
+                                                                draggable={activeTab !== 'completed'}
+                                                                onDragStart={activeTab !== 'completed' ? (e) => handleDragStart(e, item, 'product') : undefined}
+                                                                onDragEnd={activeTab !== 'completed' ? () => setDraggedItem(null) : undefined}
                                                                 style={{
                                                                     background: '#fff', padding: '1.15rem', borderRadius: '12px',
                                                                     border: '1px solid rgba(0,0,0,0.05)', fontSize: '0.85rem',
                                                                     boxShadow: isDragged ? '0 12px 25px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.03)',
-                                                                    cursor: 'grab', display: 'flex', flexDirection: 'column', gap: '0.6rem',
+                                                                    cursor: activeTab === 'completed' ? 'default' : 'grab', display: 'flex', flexDirection: 'column', gap: '0.6rem',
                                                                     opacity: isItemComplete ? 0.6 : (isDragged ? 0.4 : 1),
                                                                     transform: isDragged ? 'scale(0.98)' : 'scale(1)',
                                                                     transition: 'all 0.2s',
@@ -1034,7 +1114,7 @@ export default function Producao() {
                                                                     <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
                                                                         {item.productName}
                                                                     </h4>
-                                                                    <GripVertical size={16} color="#cbd5e1" className="grip-handle" style={{ flexShrink: 0, cursor: 'grab' }} />
+                                                                    {activeTab !== 'completed' && <GripVertical size={16} color="#cbd5e1" className="grip-handle" style={{ flexShrink: 0, cursor: 'grab' }} />}
                                                                 </div>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                                     <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
@@ -1042,7 +1122,7 @@ export default function Producao() {
                                                                             {item.quantityCompleted}
                                                                         </span> / {item.quantityRequested} {item.unit} prontos
                                                                     </div>
-                                                                    {!isItemComplete && (
+                                                                    {!isItemComplete && activeTab !== 'completed' && (
                                                                         <button
                                                                             onClick={(e) => { e.stopPropagation(); handleOpenBatchModal(selectedOrderId, item) }}
                                                                             style={{
@@ -1074,15 +1154,15 @@ export default function Producao() {
                                                         return (
                                                             <div
                                                                 key={batch.id}
-                                                                draggable
-                                                                onDragStart={(e) => handleDragStart(e, batch, 'batch')}
-                                                                onDragEnd={() => setDraggedItem(null)}
+                                                                draggable={activeTab !== 'completed'}
+                                                                onDragStart={activeTab !== 'completed' ? (e) => handleDragStart(e, batch, 'batch') : undefined}
+                                                                onDragEnd={activeTab !== 'completed' ? () => setDraggedItem(null) : undefined}
                                                                 style={{
                                                                     background: '#fff',
                                                                     padding: '0.85rem',
                                                                     borderRadius: '12px',
                                                                     boxShadow: isDragged ? '0 12px 25px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.03)',
-                                                                    cursor: 'grab',
+                                                                    cursor: activeTab === 'completed' ? 'default' : 'grab',
                                                                     display: 'flex',
                                                                     flexDirection: 'column',
                                                                     gap: '0.4rem',
@@ -1143,26 +1223,30 @@ export default function Producao() {
                                                                                     >
                                                                                         <Printer size={15} color="#6366f1" /> Imprimir Etiqueta
                                                                                     </button>
-                                                                                    <button
-                                                                                        onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); handleEditBatch(batch) }}
-                                                                                        style={{ background: 'transparent', border: 'none', color: '#1e293b', cursor: 'pointer', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textAlign: 'left', width: '100%', borderRadius: '6px' }}
-                                                                                        onMouseOver={e => e.currentTarget.style.background = '#f1f5f9'}
-                                                                                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                                                                                    >
-                                                                                        <Edit2 size={15} color="#94a3b8" /> Editar Lote
-                                                                                    </button>
-                                                                                    <button
-                                                                                        onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); handleDeleteBatch(batch) }}
-                                                                                        style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textAlign: 'left', width: '100%', borderRadius: '6px' }}
-                                                                                        onMouseOver={e => e.currentTarget.style.background = '#fef2f2'}
-                                                                                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-                                                                                    >
-                                                                                        <Trash2 size={15} color="#ef4444" /> Excluir Lote
-                                                                                    </button>
+                                                                                    {activeTab !== 'completed' && (
+                                                                                        <>
+                                                                                            <button
+                                                                                                onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); handleEditBatch(batch) }}
+                                                                                                style={{ background: 'transparent', border: 'none', color: '#1e293b', cursor: 'pointer', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textAlign: 'left', width: '100%', borderRadius: '6px' }}
+                                                                                                onMouseOver={e => e.currentTarget.style.background = '#f1f5f9'}
+                                                                                                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                                                                            >
+                                                                                                <Edit2 size={15} color="#94a3b8" /> Editar Lote
+                                                                                            </button>
+                                                                                            <button
+                                                                                                onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); handleDeleteBatch(batch) }}
+                                                                                                style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textAlign: 'left', width: '100%', borderRadius: '6px' }}
+                                                                                                onMouseOver={e => e.currentTarget.style.background = '#fef2f2'}
+                                                                                                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                                                                            >
+                                                                                                <Trash2 size={15} color="#ef4444" /> Excluir Lote
+                                                                                            </button>
+                                                                                        </>
+                                                                                    )}
                                                                                 </div>
                                                                             </>
                                                                         )}
-                                                                        <GripVertical size={16} color="#cbd5e1" className="grip-handle" style={{ flexShrink: 0, cursor: 'grab', marginLeft: '4px' }} />
+                                                                        {activeTab !== 'completed' && <GripVertical size={16} color="#cbd5e1" className="grip-handle" style={{ flexShrink: 0, cursor: 'grab', marginLeft: '4px' }} />}
                                                                     </div>
                                                                 </div>
 
@@ -1178,18 +1262,20 @@ export default function Producao() {
                                                                 </div>
 
                                                                 {/* BOTOES DE MOVIMENTACAO MOBILE */}
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.8rem' }} className="mobile-move-actions">
-                                                                    {batch.status === 'done' && (
-                                                                        <button onClick={(e) => { e.stopPropagation(); handleMoveBatchStatus(batch, 'in_progress') }} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '0.4rem', borderRadius: '8px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}>
-                                                                            <ChevronLeft size={16} /> Voltar Lote
-                                                                        </button>
-                                                                    )}
-                                                                    {batch.status === 'in_progress' && (
-                                                                        <button onClick={(e) => { e.stopPropagation(); handleMoveBatchStatus(batch, 'done') }} style={{ background: '#ecfdf5', border: '1px solid #d1fae5', color: '#10b981', padding: '0.4rem', borderRadius: '8px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontWeight: 600, cursor: 'pointer' }}>
-                                                                            Concluir <ChevronRight size={16} />
-                                                                        </button>
-                                                                    )}
-                                                                </div>
+                                                                {activeTab !== 'completed' && (
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.8rem' }} className="mobile-move-actions">
+                                                                        {batch.status === 'done' && (
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleMoveBatchStatus(batch, 'in_progress') }} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#64748b', padding: '0.4rem', borderRadius: '8px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}>
+                                                                                <ChevronLeft size={16} /> Voltar Lote
+                                                                            </button>
+                                                                        )}
+                                                                        {batch.status === 'in_progress' && (
+                                                                            <button onClick={(e) => { e.stopPropagation(); handleMoveBatchStatus(batch, 'done') }} style={{ background: '#ecfdf5', border: '1px solid #d1fae5', color: '#10b981', padding: '0.4rem', borderRadius: '8px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', fontWeight: 600, cursor: 'pointer' }}>
+                                                                                Concluir <ChevronRight size={16} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )
                                                     })
