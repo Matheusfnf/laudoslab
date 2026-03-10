@@ -655,6 +655,12 @@ export default function Producao() {
             return;
         }
 
+        // Busca o produto no catálogo para pegar a sigla (acronym)
+        const catalogItem = catalogProducts.find(c => c.name === batch.productName);
+        const titleText = catalogItem && catalogItem.acronym
+            ? `ATIVADOR ${catalogItem.acronym}`
+            : batch.productName;
+
         // O usuário solicitou que o volume seja sempre "5 Litros" para a etiqueta
         const volumeText = `Volume: 5 Litros`;
 
@@ -766,7 +772,7 @@ export default function Producao() {
             <body>
                 <div class="label-container">
                     <div>
-                        <div class="title">${batch.productName}</div>
+                        <div class="title">${titleText}</div>
                         <div class="volume">${volumeText}</div>
                     </div>
                     
