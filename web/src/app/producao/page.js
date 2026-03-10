@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText, Clipboard as ClipBoard, Layers, Printer } from 'lucide-react'
+import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText, Clipboard as ClipBoard, Layers, Printer, List } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -30,6 +30,7 @@ export default function Producao() {
     const [isOrderModalOpen, setIsOrderModalOpen] = useState(false)
     const [isBatchModalOpen, setIsBatchModalOpen] = useState(false)
     const [imagePreviewUrl, setImagePreviewUrl] = useState(null)
+    const [openDropdownId, setOpenDropdownId] = useState(null) // State para controlar o menu dropdown aberto
 
     // Form state for Order
     const [newOrder, setNewOrder] = useState({
@@ -746,7 +747,7 @@ export default function Producao() {
                     </div>
 
                     <div class="logo-container">
-                        <img src="${window.location.origin}/logos/logo.png" class="logo-img" alt="Proativa Lab Logo" onerror="this.style.display='none'"/>
+                        <img src="${window.location.origin}/logos/Logo proativa vetorizado.svg" class="logo-img" alt="Proativa Lab Logo" onerror="this.style.display='none'"/>
                     </div>
                 </div>
                 <script>
@@ -1078,13 +1079,13 @@ export default function Producao() {
                                                                 onDragEnd={() => setDraggedItem(null)}
                                                                 style={{
                                                                     background: '#fff',
-                                                                    padding: '1.15rem',
+                                                                    padding: '0.85rem',
                                                                     borderRadius: '12px',
                                                                     boxShadow: isDragged ? '0 12px 25px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.03)',
                                                                     cursor: 'grab',
                                                                     display: 'flex',
                                                                     flexDirection: 'column',
-                                                                    gap: '0.6rem',
+                                                                    gap: '0.4rem',
                                                                     border: '1px solid rgba(0,0,0,0.05)',
                                                                     opacity: isDragged ? 0.4 : 1,
                                                                     transform: isDragged ? 'scale(0.98)' : 'scale(1)',
@@ -1092,14 +1093,75 @@ export default function Producao() {
                                                                 }}
                                                             >
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                                                                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
+                                                                    <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.25 }}>
                                                                         {batch.productName}
                                                                     </h4>
-                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                                                        <button onClick={(e) => { e.stopPropagation(); router.push(`/producao/certificado/${batch.id}`) }} style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }} title="Emitir Certificado"><ScrollText size={15} /></button>
-                                                                        <button onClick={(e) => { e.stopPropagation(); handlePrintLabel(batch) }} style={{ background: 'transparent', border: 'none', color: '#6366f1', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }} title="Imprimir Etiqueta"><Printer size={15} /></button>
-                                                                        <button onClick={() => handleEditBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }} title="Editar Lote"><Edit2 size={14} /></button>
-                                                                        <button onClick={() => handleDeleteBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '2px' }} title="Excluir Lote"><Trash2 size={14} /></button>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setOpenDropdownId(openDropdownId === batch.id ? null : batch.id);
+                                                                            }}
+                                                                            style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+                                                                        >
+                                                                            <List size={18} />
+                                                                        </button>
+                                                                        {openDropdownId === batch.id && (
+                                                                            <>
+                                                                                <div
+                                                                                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10 }}
+                                                                                    onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); }}
+                                                                                />
+                                                                                <div style={{
+                                                                                    position: 'absolute',
+                                                                                    top: '100%',
+                                                                                    right: '0',
+                                                                                    marginTop: '4px',
+                                                                                    background: '#fff',
+                                                                                    border: '1px solid #e2e8f0',
+                                                                                    borderRadius: '8px',
+                                                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                                                                                    padding: '4px',
+                                                                                    display: 'flex',
+                                                                                    flexDirection: 'column',
+                                                                                    minWidth: '180px',
+                                                                                    zIndex: 20
+                                                                                }}>
+                                                                                    <button
+                                                                                        onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); router.push(`/producao/certificado/${batch.id}`) }}
+                                                                                        style={{ background: 'transparent', border: 'none', color: '#1e293b', cursor: 'pointer', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textAlign: 'left', width: '100%', borderRadius: '6px' }}
+                                                                                        onMouseOver={e => e.currentTarget.style.background = '#f1f5f9'}
+                                                                                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                                                                    >
+                                                                                        <ScrollText size={15} color="#10b981" /> Emitir Certificado
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); handlePrintLabel(batch) }}
+                                                                                        style={{ background: 'transparent', border: 'none', color: '#1e293b', cursor: 'pointer', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textAlign: 'left', width: '100%', borderRadius: '6px' }}
+                                                                                        onMouseOver={e => e.currentTarget.style.background = '#f1f5f9'}
+                                                                                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                                                                    >
+                                                                                        <Printer size={15} color="#6366f1" /> Imprimir Etiqueta
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); handleEditBatch(batch) }}
+                                                                                        style={{ background: 'transparent', border: 'none', color: '#1e293b', cursor: 'pointer', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textAlign: 'left', width: '100%', borderRadius: '6px' }}
+                                                                                        onMouseOver={e => e.currentTarget.style.background = '#f1f5f9'}
+                                                                                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                                                                    >
+                                                                                        <Edit2 size={15} color="#94a3b8" /> Editar Lote
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={(e) => { e.stopPropagation(); setOpenDropdownId(null); handleDeleteBatch(batch) }}
+                                                                                        style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', textAlign: 'left', width: '100%', borderRadius: '6px' }}
+                                                                                        onMouseOver={e => e.currentTarget.style.background = '#fef2f2'}
+                                                                                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                                                                                    >
+                                                                                        <Trash2 size={15} color="#ef4444" /> Excluir Lote
+                                                                                    </button>
+                                                                                </div>
+                                                                            </>
+                                                                        )}
                                                                         <GripVertical size={16} color="#cbd5e1" className="grip-handle" style={{ flexShrink: 0, cursor: 'grab', marginLeft: '4px' }} />
                                                                     </div>
                                                                 </div>
@@ -1110,7 +1172,7 @@ export default function Producao() {
                                                                     <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#0ea5e9' }}>{batch.quantityProduced} {batch.unit}</span>
                                                                 </div>
 
-                                                                <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '0.2rem', marginTop: '0.2rem' }}>
+                                                                <div style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', flexDirection: 'column', gap: '0.1rem', marginTop: '0' }}>
                                                                     {batch.manufactureDate && <div><strong>Fab:</strong> {formatDateForDisplay(batch.manufactureDate)}</div>}
                                                                     {batch.expirationDate && <div><strong>Val:</strong> {formatDateForDisplay(batch.expirationDate)}</div>}
                                                                 </div>
