@@ -39,7 +39,9 @@ export default function EditReport() {
         city: '',
         state: '',
         observations: '',
-        is_modified: false
+        is_modified: false,
+        report_type: 'micro',
+        analytical_matrix: ''
     })
 
     const [clients, setClients] = useState([])
@@ -47,6 +49,164 @@ export default function EditReport() {
 
     const [micros, setMicros] = useState([])
     const [images, setImages] = useState([])
+
+    // Seed Report state — array of samples
+    const newSeedSample = () => ({
+        identification: '',
+        analytical_technique: 'Plaqueamento de 200 sementes em meio sólido PDA e NEON',
+        pathogenic: [{ genus: '', percent: '' }],
+        deteriorating: [{ genus: '', percent: '' }],
+        contaminating: [{ genus: '', percent: '' }]
+    })
+
+    const [seedResults, setSeedResults] = useState({ samples: [newSeedSample()] })
+
+    const addSeedSample = () => setSeedResults(prev => ({ samples: [...prev.samples, newSeedSample()] }))
+
+    const removeSeedSample = (sIndex) => setSeedResults(prev => {
+        const arr = [...prev.samples]; arr.splice(sIndex, 1); return { samples: arr }
+    })
+
+    const addSeedRow = (sIndex, category) => setSeedResults(prev => {
+        const samples = [...prev.samples]
+        const catArray = [...samples[sIndex][category]]
+        catArray.push({ genus: '', percent: '' })
+        samples[sIndex] = { ...samples[sIndex], [category]: catArray }
+        return { samples }
+    })
+
+    const removeSeedRow = (sIndex, category, rowIndex) => setSeedResults(prev => {
+        const samples = [...prev.samples]
+        const arr = [...samples[sIndex][category]]; arr.splice(rowIndex, 1)
+        samples[sIndex] = { ...samples[sIndex], [category]: arr }
+        return { samples }
+    })
+
+    const updateSeedField = (sIndex, field, value) => setSeedResults(prev => {
+        const samples = [...prev.samples]; samples[sIndex] = { ...samples[sIndex], [field]: value }; return { samples }
+    })
+
+    const updateSeedRow = (sIndex, category, rowIndex, key, value) => setSeedResults(prev => {
+        const samples = [...prev.samples]
+        const arr = [...samples[sIndex][category]]
+        arr[rowIndex] = { ...arr[rowIndex], [key]: value }
+        samples[sIndex] = { ...samples[sIndex], [category]: arr }
+        return { samples }
+    })
+
+    // Soil Report state
+    const [soilResults, setSoilResults] = useState({
+        samples: [
+            {
+                code: '',
+                identification: '',
+                microorganisms: [
+                    { genus: 'Contagem total de fungos', count: '' },
+                    { genus: 'Trichoderma', count: '' },
+                    { genus: 'Demais fungos patogênicos', count: 'ND' }
+                ]
+            }
+        ]
+    })
+
+    const addSoilSample = () => {
+        setSoilResults(prev => ({
+            ...prev,
+            samples: [
+                ...prev.samples,
+                {
+                    code: '',
+                    identification: '',
+                    microorganisms: [
+                        { genus: 'Contagem total de fungos', count: '' },
+                        { genus: 'Trichoderma', count: '' },
+                        { genus: 'Demais fungos patogênicos', count: 'ND' }
+                    ]
+                }
+            ]
+        }))
+    }
+
+    const removeSoilSample = (index) => {
+        setSoilResults(prev => {
+            const newArr = [...prev.samples]
+            newArr.splice(index, 1)
+            return { ...prev, samples: newArr }
+        })
+    }
+
+    const addSoilMicroorganism = (sampleIndex) => {
+        setSoilResults(prev => {
+            const newSamples = [...prev.samples]
+            const newMicros = [...newSamples[sampleIndex].microorganisms]
+            newMicros.push({ genus: '', count: '' })
+            newSamples[sampleIndex] = { ...newSamples[sampleIndex], microorganisms: newMicros }
+            return { ...prev, samples: newSamples }
+        })
+    }
+
+    const removeSoilMicroorganism = (sampleIndex, microIndex) => {
+        setSoilResults(prev => {
+            const newSamples = [...prev.samples]
+            newSamples[sampleIndex].microorganisms.splice(microIndex, 1)
+            return { ...prev, samples: newSamples }
+        })
+    }
+
+    // Raizes Report state
+    const [rootResults, setRootResults] = useState({
+        samples: [
+            {
+                code: '',
+                identification: '',
+                microorganisms: [
+                    { genus: '' }
+                ]
+            }
+        ]
+    })
+
+    const addRootSample = () => {
+        setRootResults(prev => ({
+            ...prev,
+            samples: [
+                ...prev.samples,
+                {
+                    code: '',
+                    identification: '',
+                    microorganisms: [
+                        { genus: '' }
+                    ]
+                }
+            ]
+        }))
+    }
+
+    const removeRootSample = (index) => {
+        setRootResults(prev => {
+            const newArr = [...prev.samples]
+            newArr.splice(index, 1)
+            return { ...prev, samples: newArr }
+        })
+    }
+
+    const addRootMicroorganism = (sampleIndex) => {
+        setRootResults(prev => {
+            const newSamples = [...prev.samples]
+            const newMicros = [...newSamples[sampleIndex].microorganisms]
+            newMicros.push({ genus: '' })
+            newSamples[sampleIndex] = { ...newSamples[sampleIndex], microorganisms: newMicros }
+            return { ...prev, samples: newSamples }
+        })
+    }
+
+    const removeRootMicroorganism = (sampleIndex, microIndex) => {
+        setRootResults(prev => {
+            const newSamples = [...prev.samples]
+            newSamples[sampleIndex].microorganisms.splice(microIndex, 1)
+            return { ...prev, samples: newSamples }
+        })
+    }
 
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -93,8 +253,40 @@ export default function EditReport() {
                     city: reportData.city || '',
                     state: reportData.state || '',
                     observations: reportData.observations || '',
-                    is_modified: reportData.is_modified || false
+                    is_modified: reportData.is_modified || false,
+                    report_type: reportData.report_type || 'micro',
+                    analytical_matrix: reportData.analytical_matrix || ''
                 })
+
+                if (reportData.report_type === 'sementes' && reportData.matrix_results) {
+                    const mr = reportData.matrix_results
+                    // Support new format (samples[]) and legacy (flat object)
+                    if (mr.samples && mr.samples.length > 0) {
+                        setSeedResults({ samples: mr.samples })
+                    } else {
+                        setSeedResults({
+                            samples: [{
+                                identification: mr.identification || '',
+                                analytical_technique: mr.analytical_technique || '',
+                                pathogenic: mr.pathogenic?.length > 0 ? mr.pathogenic : [{ genus: '', percent: '' }],
+                                deteriorating: mr.deteriorating?.length > 0 ? mr.deteriorating : [{ genus: '', percent: '' }],
+                                contaminating: (mr.contaminating?.length > 0 ? mr.contaminating : (mr.contaminants?.length > 0 ? mr.contaminants : [{ genus: '', percent: '' }]))
+                            }]
+                        })
+                    }
+                }
+
+                if (reportData.report_type === 'solos' && reportData.matrix_results && reportData.matrix_results.samples) {
+                    setSoilResults({
+                        samples: reportData.matrix_results.samples
+                    })
+                }
+
+                if (reportData.report_type === 'raizes' && reportData.matrix_results && reportData.matrix_results.samples) {
+                    setRootResults({
+                        samples: reportData.matrix_results.samples
+                    })
+                }
 
                 if (reportData.images) {
                     const normalized = reportData.images.map(img =>
@@ -292,38 +484,46 @@ export default function EditReport() {
             if (cleanHeader.client_id === '') cleanHeader.client_id = null
 
             // 1. Update header
+
+            let matrixResults = null
+            if (cleanHeader.report_type === 'sementes') matrixResults = seedResults
+            else if (cleanHeader.report_type === 'solos') matrixResults = soilResults
+            else if (cleanHeader.report_type === 'raizes') matrixResults = rootResults
+
             const { error: reportError } = await supabase
                 .from('reports')
-                .update({ ...cleanHeader, images })
+                .update({ ...cleanHeader, images, matrix_results: matrixResults })
                 .eq('id', id)
 
             if (reportError) throw reportError
 
-            // 2. Delete existing microorganisms
-            const { error: deleteError } = await supabase
-                .from('microorganisms')
-                .delete()
-                .eq('report_id', id)
-
-            if (deleteError) throw deleteError
-
-            // 3. Insert new microorganisms linking to report_id
-            const microsToInsert = micros.filter(m => m.name || m.ph || m.enterobacteria || m.mold_yeast || m.commercial_product || m.recovered.some(r => r.name || r.cfu_per_ml))
-                .map(m => {
-                    const micro = { ...m, report_id: id, is_modified: header.is_modified }
-                    delete micro.id // Prevent ID collision in insert
-                    delete micro.created_at
-                    delete micro.cfu_per_ml
-                    micro.recovered = m.recovered.filter(r => r.name || r.cfu_per_ml)
-                    return micro
-                })
-
-            if (microsToInsert.length > 0) {
-                const { error: microError } = await supabase
+            if (cleanHeader.report_type === 'micro') {
+                // 2. Delete existing microorganisms
+                const { error: deleteError } = await supabase
                     .from('microorganisms')
-                    .insert(microsToInsert)
+                    .delete()
+                    .eq('report_id', id)
 
-                if (microError) throw microError
+                if (deleteError) throw deleteError
+
+                // 3. Insert new microorganisms linking to report_id
+                const microsToInsert = micros.filter(m => m.name || m.ph || m.enterobacteria || m.mold_yeast || m.commercial_product || m.recovered.some(r => r.name || r.cfu_per_ml))
+                    .map(m => {
+                        const micro = { ...m, report_id: id, is_modified: header.is_modified }
+                        delete micro.id // Prevent ID collision in insert
+                        delete micro.created_at
+                        delete micro.cfu_per_ml
+                        micro.recovered = m.recovered.filter(r => r.name || r.cfu_per_ml)
+                        return micro
+                    })
+
+                if (microsToInsert.length > 0) {
+                    const { error: microError } = await supabase
+                        .from('microorganisms')
+                        .insert(microsToInsert)
+
+                    if (microError) throw microError
+                }
             }
 
             setSuccess(true)
@@ -565,152 +765,452 @@ export default function EditReport() {
                     </div>
                 </div>
 
-                {/* Microorganismos */}
-                <div className="card" style={{ marginBottom: '2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                        <h2 style={{ marginBottom: 0 }}>Análise Microbiológica</h2>
-                        <button type="button" className="btn btn-secondary" onClick={addMicro} style={{ padding: '0.5rem 1rem' }}>
-                            <PlusCircle size={16} /> Adicionar
-                        </button>
-                    </div>
+                {/* Tabela de Resultados ou Microorganismos */}
+                {header.report_type === 'micro' ? (
+                    <div className="card" style={{ marginBottom: '2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h2 style={{ marginBottom: 0 }}>Análise Microbiológica</h2>
+                            <button type="button" className="btn btn-secondary" onClick={addMicro} style={{ padding: '0.5rem 1rem' }}>
+                                <PlusCircle size={16} /> Adicionar
+                            </button>
+                        </div>
 
-                    <div className="micro-list">
-                        {micros.map((micro, index) => (
-                            <div key={index} className="micro-item" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label>Código</label>
-                                    <input
-                                        type="text"
-                                        value={micro.code || ''}
-                                        onChange={(e) => handleMicroChange(index, 'code', e.target.value)}
-                                        placeholder="Ex: 001"
-                                    />
-                                </div>
-
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label>Nome do Microorganismo</label>
-                                    <input
-                                        type="text"
-                                        value={micro.name || ''}
-                                        onChange={(e) => handleMicroChange(index, 'name', e.target.value)}
-                                        placeholder="Ex: B. amyloliquefaciens + B. velezensis"
-                                    />
-                                </div>
-
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label>pH</label>
-                                    <input
-                                        type="text"
-                                        value={micro.ph || ''}
-                                        onChange={(e) => handleMicroChange(index, 'ph', e.target.value)}
-                                        placeholder="Ex: 7.2"
-                                    />
-                                </div>
-
-                                <div className="form-group" style={{ marginBottom: 0 }}>
-                                    <label>Produto Comercial</label>
-                                    <input
-                                        type="text"
-                                        value={micro.commercial_product || ''}
-                                        onChange={(e) => handleMicroChange(index, 'commercial_product', e.target.value)}
-                                        placeholder="Ex: Inovar"
-                                    />
-                                </div>
-
-                                <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}>
-                                    <label>Observações da amostra (Opcional)</label>
-                                    <textarea
-                                        value={micro.observations || ''}
-                                        onChange={(e) => handleMicroChange(index, 'observations', e.target.value)}
-                                        placeholder="Ex: Crescimento atípico observado..."
-                                        style={{ width: '100%', minHeight: '60px', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccd0d5', resize: 'vertical' }}
-                                    />
-                                </div>
-
-                                <div style={{ gridColumn: '1 / -1', background: 'rgba(52, 199, 89, 0.05)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--success-color)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                        <h4 style={{ margin: 0, color: 'var(--success-color)', fontSize: '0.95rem', fontWeight: 600 }}>Microrganismos Recuperados</h4>
-                                        <button type="button" className="btn btn-secondary" onClick={() => addRecovered(index)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', height: 'auto' }}>
-                                            <PlusCircle size={14} /> Adicionar
-                                        </button>
+                        <div className="micro-list">
+                            {micros.map((micro, index) => (
+                                <div key={index} className="micro-item" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label>Código</label>
+                                        <input
+                                            type="text"
+                                            value={micro.code || ''}
+                                            onChange={(e) => handleMicroChange(index, 'code', e.target.value)}
+                                            placeholder="Ex: 001"
+                                        />
                                     </div>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                        {micro.recovered.map((rec, rIdx) => (
-                                            <div key={rIdx} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
-                                                <div className="form-group" style={{ marginBottom: 0, flex: 2 }}>
-                                                    <label style={{ fontSize: '0.8rem' }}>Microrganismo</label>
-                                                    <input
-                                                        type="text"
-                                                        value={rec.name || ''}
-                                                        onChange={(e) => handleRecoveredChange(index, rIdx, 'name', e.target.value)}
-                                                        placeholder="Ex: B. amyloliquefaciens"
-                                                    />
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label>Nome do Microorganismo</label>
+                                        <input
+                                            type="text"
+                                            value={micro.name || ''}
+                                            onChange={(e) => handleMicroChange(index, 'name', e.target.value)}
+                                            placeholder="Ex: B. amyloliquefaciens + B. velezensis"
+                                        />
+                                    </div>
+
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label>pH</label>
+                                        <input
+                                            type="text"
+                                            value={micro.ph || ''}
+                                            onChange={(e) => handleMicroChange(index, 'ph', e.target.value)}
+                                            placeholder="Ex: 7.2"
+                                        />
+                                    </div>
+
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label>Produto Comercial</label>
+                                        <input
+                                            type="text"
+                                            value={micro.commercial_product || ''}
+                                            onChange={(e) => handleMicroChange(index, 'commercial_product', e.target.value)}
+                                            placeholder="Ex: Inovar"
+                                        />
+                                    </div>
+
+                                    <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: '1rem' }}>
+                                        <label>Observações da amostra (Opcional)</label>
+                                        <textarea
+                                            value={micro.observations || ''}
+                                            onChange={(e) => handleMicroChange(index, 'observations', e.target.value)}
+                                            placeholder="Ex: Crescimento atípico observado..."
+                                            style={{ width: '100%', minHeight: '60px', padding: '0.75rem', borderRadius: '8px', border: '1px solid #ccd0d5', resize: 'vertical' }}
+                                        />
+                                    </div>
+
+                                    <div style={{ gridColumn: '1 / -1', background: 'rgba(52, 199, 89, 0.05)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--success-color)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                            <h4 style={{ margin: 0, color: 'var(--success-color)', fontSize: '0.95rem', fontWeight: 600 }}>Microrganismos Recuperados</h4>
+                                            <button type="button" className="btn btn-secondary" onClick={() => addRecovered(index)} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', height: 'auto' }}>
+                                                <PlusCircle size={14} /> Adicionar
+                                            </button>
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            {micro.recovered.map((rec, rIdx) => (
+                                                <div key={rIdx} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end' }}>
+                                                    <div className="form-group" style={{ marginBottom: 0, flex: 2 }}>
+                                                        <label style={{ fontSize: '0.8rem' }}>Microrganismo</label>
+                                                        <input
+                                                            type="text"
+                                                            value={rec.name || ''}
+                                                            onChange={(e) => handleRecoveredChange(index, rIdx, 'name', e.target.value)}
+                                                            placeholder="Ex: B. amyloliquefaciens"
+                                                        />
+                                                    </div>
+                                                    <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
+                                                        <label style={{ fontSize: '0.8rem' }}>UFC/mL <span style={{ color: '#888', fontWeight: 400 }}>(Ex: ^4 para ⁴)</span></label>
+                                                        <input
+                                                            type="text"
+                                                            value={rec.cfu_per_ml || ''}
+                                                            onChange={(e) => handleRecoveredChange(index, rIdx, 'cfu_per_ml', e.target.value)}
+                                                            placeholder="Ex: < 1x10⁵"
+                                                        />
+                                                    </div>
+                                                    {micro.recovered.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-secondary"
+                                                            onClick={() => removeRecovered(index, rIdx)}
+                                                            style={{ padding: '0.5rem', color: '#c62828', height: '42px', border: 'none', background: 'transparent' }}
+                                                            title="Remover"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    )}
                                                 </div>
-                                                <div className="form-group" style={{ marginBottom: 0, flex: 1 }}>
-                                                    <label style={{ fontSize: '0.8rem' }}>UFC/mL <span style={{ color: '#888', fontWeight: 400 }}>(Ex: ^4 para ⁴)</span></label>
-                                                    <input
-                                                        type="text"
-                                                        value={rec.cfu_per_ml || ''}
-                                                        onChange={(e) => handleRecoveredChange(index, rIdx, 'cfu_per_ml', e.target.value)}
-                                                        placeholder="Ex: < 1x10⁵"
-                                                    />
-                                                </div>
-                                                {micro.recovered.length > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-secondary"
-                                                        onClick={() => removeRecovered(index, rIdx)}
-                                                        style={{ padding: '0.5rem', color: '#c62828', height: '42px', border: 'none', background: 'transparent' }}
-                                                        title="Remover"
-                                                    >
-                                                        <Trash2 size={18} />
-                                                    </button>
-                                                )}
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ gridColumn: '1 / -1', background: 'rgba(0, 86, 179, 0.03)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--primary-color)' }}>
+                                        <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary-color)', fontSize: '0.95rem', fontWeight: 600 }}>Indicadores</h4>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label>Enterobactérias <span style={{ color: '#888', fontWeight: 400, fontSize: '0.8rem' }}>(Ex: ^4 para ⁴)</span></label>
+                                                <input
+                                                    type="text"
+                                                    value={micro.enterobacteria || ''}
+                                                    onChange={(e) => handleMicroChange(index, 'enterobacteria', e.target.value)}
+                                                    placeholder="Ex: < 10 UFC/g"
+                                                />
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                <div style={{ gridColumn: '1 / -1', background: 'rgba(0, 86, 179, 0.03)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--primary-color)' }}>
-                                    <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary-color)', fontSize: '0.95rem', fontWeight: 600 }}>Indicadores</h4>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                        <div className="form-group" style={{ marginBottom: 0 }}>
-                                            <label>Enterobactérias <span style={{ color: '#888', fontWeight: 400, fontSize: '0.8rem' }}>(Ex: ^4 para ⁴)</span></label>
-                                            <input
-                                                type="text"
-                                                value={micro.enterobacteria || ''}
-                                                onChange={(e) => handleMicroChange(index, 'enterobacteria', e.target.value)}
-                                                placeholder="Ex: < 10 UFC/g"
-                                            />
-                                        </div>
-
-                                        <div className="form-group" style={{ marginBottom: 0 }}>
-                                            <label>Bolor/Levedura <span style={{ color: '#888', fontWeight: 400, fontSize: '0.8rem' }}>(Ex: ^4 para ⁴)</span></label>
-                                            <input
-                                                type="text"
-                                                value={micro.mold_yeast || ''}
-                                                onChange={(e) => handleMicroChange(index, 'mold_yeast', e.target.value)}
-                                                placeholder="Ex: 1x10⁴ UFC/g"
-                                            />
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label>Bolor/Levedura <span style={{ color: '#888', fontWeight: 400, fontSize: '0.8rem' }}>(Ex: ^4 para ⁴)</span></label>
+                                                <input
+                                                    type="text"
+                                                    value={micro.mold_yeast || ''}
+                                                    onChange={(e) => handleMicroChange(index, 'mold_yeast', e.target.value)}
+                                                    placeholder="Ex: 1x10⁴ UFC/g"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                {micros.length > 1 && (
-                                    <button
-                                        type="button"
-                                        className="btn btn-secondary"
-                                        onClick={() => removeMicro(index)}
-                                        style={{ padding: '0.75rem', background: '#ffebee', color: '#c62828', height: '42px', justifySelf: 'start', alignSelf: 'end' }}
-                                    >
-                                        <Trash2 size={16} /> Remover
-                                    </button>
-                                )}
-                            </div>
-                        ))}
+                                    {micros.length > 1 && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            onClick={() => removeMicro(index)}
+                                            style={{ padding: '0.75rem', background: '#ffebee', color: '#c62828', height: '42px', justifySelf: 'start', alignSelf: 'end' }}
+                                        >
+                                            <Trash2 size={16} /> Remover
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
+                ) : header.report_type === 'sementes' ? (
+                    <>
+                        <div className="card" style={{ marginBottom: '2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h2 style={{ marginBottom: 0 }}>Resultados para Pesquisa e Quantificação de Fungos</h2>
+                                <button type="button" className="btn btn-primary" onClick={addSeedSample} style={{ padding: '0.5rem 1rem' }}>
+                                    <PlusCircle size={18} /> Nova Amostra
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                {seedResults.samples.map((sample, sIndex) => (
+                                    <div key={sIndex} style={{ border: '1px solid #dcfce7', borderRadius: '12px', overflow: 'hidden' }}>
+                                        {/* Sample header */}
+                                        <div style={{ background: '#f0fdf4', padding: '1.25rem 1.5rem', borderBottom: '1px solid #dcfce7', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) auto', gap: '1rem', alignItems: 'flex-end' }}>
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label>Identificação do Lote</label>
+                                                <input
+                                                    type="text"
+                                                    value={sample.identification}
+                                                    onChange={(e) => updateSeedField(sIndex, 'identification', e.target.value)}
+                                                    placeholder="Ex: Feijão Lote: JMO1/C/16/25"
+                                                />
+                                            </div>
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label>Técnica Analítica</label>
+                                                <input
+                                                    type="text"
+                                                    value={sample.analytical_technique}
+                                                    onChange={(e) => updateSeedField(sIndex, 'analytical_technique', e.target.value)}
+                                                    placeholder="Ex: Plaqueamento de 200 sementes..."
+                                                />
+                                            </div>
+                                            {seedResults.samples.length > 1 && (
+                                                <button type="button" onClick={() => removeSeedSample(sIndex)}
+                                                    style={{ background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '8px', padding: '0.6rem 0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', height: '42px' }}>
+                                                    <Trash2 size={15} /> Remover
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Categories */}
+                                        <div style={{ padding: '1.25rem 1.5rem', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)', gap: '1.5rem' }}>
+                                            {/* Patogênicos */}
+                                            <div style={{ background: '#f0fdf4', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #16a34a', display: 'flex', flexDirection: 'column' }}>
+                                                <h4 style={{ color: '#15803d', marginBottom: '1rem', fontSize: '0.9rem' }}>Gêneros Patogênicos</h4>
+                                                {sample.pathogenic.map((item, idx) => (
+                                                    <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                                                        <input type="text" value={item.genus} onChange={(e) => updateSeedRow(sIndex, 'pathogenic', idx, 'genus', e.target.value)} style={{ flex: 2, padding: '0.4rem', fontSize: '0.9rem' }} placeholder="Gênero" />
+                                                        <input type="text" value={item.percent} onChange={(e) => updateSeedRow(sIndex, 'pathogenic', idx, 'percent', formatSuperscript(e.target.value))} style={{ flex: 1, padding: '0.4rem', fontSize: '0.9rem' }} placeholder="%" />
+                                                        {sample.pathogenic.length > 1 && (
+                                                            <button type="button" onClick={() => removeSeedRow(sIndex, 'pathogenic', idx)} style={{ background: 'none', border: 'none', color: 'var(--danger-color)', cursor: 'pointer' }}><Trash2 size={15} /></button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                <button type="button" onClick={() => addSeedRow(sIndex, 'pathogenic')} style={{ alignSelf: 'center', background: 'none', border: 'none', color: '#16a34a', cursor: 'pointer', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.85rem' }}>
+                                                    <PlusCircle size={15} /> Adicionar Linha
+                                                </button>
+                                            </div>
+
+                                            {/* Deteriorantes */}
+                                            <div style={{ background: '#f0fdf4', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #4ade80', display: 'flex', flexDirection: 'column' }}>
+                                                <h4 style={{ color: '#15803d', marginBottom: '1rem', fontSize: '0.9rem' }}>Deteriorante/Armazenamento</h4>
+                                                {sample.deteriorating.map((item, idx) => (
+                                                    <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                                                        <input type="text" value={item.genus} onChange={(e) => updateSeedRow(sIndex, 'deteriorating', idx, 'genus', e.target.value)} style={{ flex: 2, padding: '0.4rem', fontSize: '0.9rem' }} placeholder="Gênero" />
+                                                        <input type="text" value={item.percent} onChange={(e) => updateSeedRow(sIndex, 'deteriorating', idx, 'percent', formatSuperscript(e.target.value))} style={{ flex: 1, padding: '0.4rem', fontSize: '0.9rem' }} placeholder="%" />
+                                                        {sample.deteriorating.length > 1 && (
+                                                            <button type="button" onClick={() => removeSeedRow(sIndex, 'deteriorating', idx)} style={{ background: 'none', border: 'none', color: 'var(--danger-color)', cursor: 'pointer' }}><Trash2 size={15} /></button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                <button type="button" onClick={() => addSeedRow(sIndex, 'deteriorating')} style={{ alignSelf: 'center', background: 'none', border: 'none', color: '#16a34a', cursor: 'pointer', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.85rem' }}>
+                                                    <PlusCircle size={15} /> Adicionar Linha
+                                                </button>
+                                            </div>
+
+                                            {/* Contaminantes */}
+                                            <div style={{ background: '#f0fdf4', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #86efac', display: 'flex', flexDirection: 'column' }}>
+                                                <h4 style={{ color: '#15803d', marginBottom: '1rem', fontSize: '0.9rem' }}>Contaminante</h4>
+                                                {sample.contaminating.map((item, idx) => (
+                                                    <div key={idx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                                                        <input type="text" value={item.genus} onChange={(e) => updateSeedRow(sIndex, 'contaminating', idx, 'genus', e.target.value)} style={{ flex: 2, padding: '0.4rem', fontSize: '0.9rem' }} placeholder="Gênero" />
+                                                        <input type="text" value={item.percent} onChange={(e) => updateSeedRow(sIndex, 'contaminating', idx, 'percent', formatSuperscript(e.target.value))} style={{ flex: 1, padding: '0.4rem', fontSize: '0.9rem' }} placeholder="%" />
+                                                        {sample.contaminating.length > 1 && (
+                                                            <button type="button" onClick={() => removeSeedRow(sIndex, 'contaminating', idx)} style={{ background: 'none', border: 'none', color: 'var(--danger-color)', cursor: 'pointer' }}><Trash2 size={15} /></button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                <button type="button" onClick={() => addSeedRow(sIndex, 'contaminating')} style={{ alignSelf: 'center', background: 'none', border: 'none', color: '#16a34a', cursor: 'pointer', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.85rem' }}>
+                                                    <PlusCircle size={15} /> Adicionar Linha
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                ) : header.report_type === 'solos' ? (
+                    <>
+                        {/* Solos */}
+                        <div className="card" style={{ marginBottom: '2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h2 style={{ marginBottom: 0 }}>Resultados para Pesquisa e Quantificação de Fungos em Solo</h2>
+                                <button type="button" className="btn btn-primary" onClick={addSoilSample} style={{ padding: '0.5rem 1rem' }}>
+                                    <PlusCircle size={18} /> Adicionar Nova Amostra
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                {soilResults.samples.map((sample, sIndex) => (
+                                    <div key={sIndex} style={{ border: '1px solid #e0e7ff', borderRadius: '8px', overflow: 'hidden' }}>
+                                        {/* Sample Header Info */}
+                                        <div style={{ background: '#f8fafc', padding: '1.5rem', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) auto', gap: '1rem', alignItems: 'flex-start', borderBottom: '1px solid #e0e7ff' }}>
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label>Código (Cód.)</label>
+                                                <input
+                                                    type="text"
+                                                    value={sample.code}
+                                                    onChange={(e) => {
+                                                        setSoilResults(prev => {
+                                                            const newArr = [...prev.samples];
+                                                            newArr[sIndex] = { ...newArr[sIndex], code: e.target.value };
+                                                            return { ...prev, samples: newArr };
+                                                        });
+                                                    }}
+                                                    placeholder="Ex: 2646"
+                                                />
+                                            </div>
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label>Identificação</label>
+                                                <textarea
+                                                    value={sample.identification}
+                                                    onChange={(e) => {
+                                                        setSoilResults(prev => {
+                                                            const newArr = [...prev.samples];
+                                                            newArr[sIndex] = { ...newArr[sIndex], identification: e.target.value };
+                                                            return { ...prev, samples: newArr };
+                                                        });
+                                                    }}
+                                                    placeholder="Ex: Solo amostra 01&#10;Ponto 1-Margarida 2016&#10;Cultura: Abacate"
+                                                    style={{ width: '100%', minHeight: '60px', padding: '0.75rem', borderRadius: '6px', border: '1px solid #ccd0d5', resize: 'vertical' }}
+                                                />
+                                            </div>
+                                            {soilResults.samples.length > 1 && (
+                                                <button type="button" onClick={() => removeSoilSample(sIndex)} style={{ background: '#ffebee', border: 'none', color: '#c62828', cursor: 'pointer', padding: '0.6rem 1rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
+                                                    <Trash2 size={16} /> Remover Amostra
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Microorganisms List for this Sample */}
+                                        <div style={{ padding: '1.5rem' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr) auto', gap: '1rem', marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px solid #eee' }}>
+                                                <strong style={{ color: 'var(--text-color)' }}>Gênero (Qualquer texto)</strong>
+                                                <strong style={{ color: 'var(--text-color)' }}>Resultado UFC/g de solo</strong>
+                                                <div style={{ width: '38px' }}></div>
+                                            </div>
+                                            {sample.microorganisms.map((micro, mIndex) => (
+                                                <div key={mIndex} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr) auto', gap: '1rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                    <input
+                                                        type="text"
+                                                        value={micro.genus}
+                                                        onChange={(e) => {
+                                                            setSoilResults(prev => {
+                                                                const newSamples = [...prev.samples];
+                                                                const newMicros = [...newSamples[sIndex].microorganisms];
+                                                                newMicros[mIndex] = { ...newMicros[mIndex], genus: e.target.value };
+                                                                newSamples[sIndex] = { ...newSamples[sIndex], microorganisms: newMicros };
+                                                                return { ...prev, samples: newSamples };
+                                                            });
+                                                        }}
+                                                        placeholder="Ex: Trichoderma ou Demais fungos"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={micro.count}
+                                                        onChange={(e) => {
+                                                            const val = formatSuperscript(e.target.value);
+                                                            setSoilResults(prev => {
+                                                                const newSamples = [...prev.samples];
+                                                                const newMicros = [...newSamples[sIndex].microorganisms];
+                                                                newMicros[mIndex] = { ...newMicros[mIndex], count: val };
+                                                                newSamples[sIndex] = { ...newSamples[sIndex], microorganisms: newMicros };
+                                                                return { ...prev, samples: newSamples };
+                                                            });
+                                                        }}
+                                                        placeholder="Ex: 5x10^2"
+                                                    />
+                                                    {sample.microorganisms.length > 1 ? (
+                                                        <button type="button" onClick={() => removeSoilMicroorganism(sIndex, mIndex)} style={{ background: 'none', border: 'none', color: 'var(--danger-color)', cursor: 'pointer', padding: '0.4rem' }}>
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    ) : <div style={{ width: '38px' }}></div>}
+                                                </div>
+                                            ))}
+                                            <button type="button" onClick={() => addSoilMicroorganism(sIndex)} style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                                <PlusCircle size={18} /> Adicionar Microrganismo
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                ) : header.report_type === 'raizes' ? (
+                    <>
+                        {/* Raizes */}
+                        <div className="card" style={{ marginBottom: '2rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                                <h2 style={{ marginBottom: 0 }}>Resultados para Pesquisa de Fungos em Raízes</h2>
+                                <button type="button" className="btn btn-primary" onClick={addRootSample} style={{ padding: '0.5rem 1rem' }}>
+                                    <PlusCircle size={18} /> Adicionar Nova Amostra
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                {rootResults.samples.map((sample, sIndex) => (
+                                    <div key={sIndex} style={{ border: '1px solid #cffafe', borderRadius: '8px', overflow: 'hidden' }}>
+                                        {/* Sample Header Info */}
+                                        <div style={{ background: '#ecfeff', padding: '1.5rem', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr) auto', gap: '1rem', alignItems: 'flex-start', borderBottom: '1px solid #cffafe' }}>
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label style={{ color: '#0891b2' }}>Código (Cód.)</label>
+                                                <input
+                                                    type="text"
+                                                    value={sample.code}
+                                                    onChange={(e) => {
+                                                        setRootResults(prev => {
+                                                            const newArr = [...prev.samples];
+                                                            newArr[sIndex] = { ...newArr[sIndex], code: e.target.value };
+                                                            return { ...prev, samples: newArr };
+                                                        });
+                                                    }}
+                                                    placeholder="Ex: 2687"
+                                                    style={{ borderColor: '#a5f3fc' }}
+                                                />
+                                            </div>
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label style={{ color: '#0891b2' }}>Identificação</label>
+                                                <textarea
+                                                    value={sample.identification}
+                                                    onChange={(e) => {
+                                                        setRootResults(prev => {
+                                                            const newArr = [...prev.samples];
+                                                            newArr[sIndex] = { ...newArr[sIndex], identification: e.target.value };
+                                                            return { ...prev, samples: newArr };
+                                                        });
+                                                    }}
+                                                    placeholder="Ex: Amostra de raiz de soja inoculada em ágar"
+                                                    style={{ width: '100%', minHeight: '60px', padding: '0.75rem', borderRadius: '6px', border: '1px solid #a5f3fc', resize: 'vertical' }}
+                                                />
+                                            </div>
+                                            {rootResults.samples.length > 1 && (
+                                                <button type="button" onClick={() => removeRootSample(sIndex)} style={{ background: '#ffebee', border: 'none', color: '#c62828', cursor: 'pointer', padding: '0.6rem 1rem', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1.5rem' }}>
+                                                    <Trash2 size={16} /> Remover Amostra
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Genera List for this Sample (Root - No UFC) */}
+                                        <div style={{ padding: '1.5rem', background: '#fff' }}>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '1rem', marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px solid #eee' }}>
+                                                <strong style={{ color: '#0891b2' }}>Gênero Encontrado</strong>
+                                                <div style={{ width: '38px' }}></div>
+                                            </div>
+                                            {sample.microorganisms.map((micro, mIndex) => (
+                                                <div key={mIndex} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '1rem', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                                    <input
+                                                        type="text"
+                                                        value={micro.genus}
+                                                        onChange={(e) => {
+                                                            setRootResults(prev => {
+                                                                const newSamples = [...prev.samples];
+                                                                const newMicros = [...newSamples[sIndex].microorganisms];
+                                                                newMicros[mIndex] = { ...newMicros[mIndex], genus: e.target.value };
+                                                                newSamples[sIndex] = { ...newSamples[sIndex], microorganisms: newMicros };
+                                                                return { ...prev, samples: newSamples };
+                                                            });
+                                                        }}
+                                                        placeholder="Ex: Fusarium"
+                                                    />
+                                                    {sample.microorganisms.length > 1 ? (
+                                                        <button type="button" onClick={() => removeRootMicroorganism(sIndex, mIndex)} style={{ background: 'none', border: 'none', color: 'var(--danger-color)', cursor: 'pointer', padding: '0.4rem' }}>
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    ) : <div style={{ width: '38px' }}></div>}
+                                                </div>
+                                            ))}
+                                            <button type="button" onClick={() => addRootMicroorganism(sIndex)} style={{ background: 'none', border: 'none', color: '#0891b2', cursor: 'pointer', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                                <PlusCircle size={18} /> Adicionar Gênero
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                ) : null}
 
                 {/* Considerações do Laudo */}
                 <div className="card" style={{ marginBottom: '2rem' }}>

@@ -6,6 +6,9 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { ArrowLeft, Calendar, User, MapPin, Microscope, CheckCircle, Trash2, Download, Image as ImageIcon, Copy, AlertTriangle } from 'lucide-react'
 import ReportPDFTemplate from '@/components/ReportPDFTemplate'
+import SeedReportPDFTemplate from '@/components/SeedReportPDFTemplate'
+import SoilReportPDFTemplate from '@/components/SoilReportPDFTemplate'
+import RootReportPDFTemplate from '@/components/RootReportPDFTemplate'
 
 export default function ReportView() {
     const { id } = useParams()
@@ -323,82 +326,260 @@ export default function ReportView() {
                     </div>
                 </div>
 
-                {/* Microorganisms Card */}
-                <div className="card">
-                    <h2 style={{ marginBottom: '2rem' }}>
-                        <Microscope size={24} color="var(--primary-color)" /> Análises Microbiológicas
-                    </h2>
+                {/* Microorganisms or Seeds Card */}
+                {report.report_type === 'sementes' ? (
+                    <div className="card">
+                        <h2 style={{ marginBottom: '2rem' }}>
+                            <Microscope size={24} color="#16a34a" /> Resultados da Análise de Sementes
+                        </h2>
 
-                    {micros.length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>Nenhum microorganismo registrado neste laudo.</p>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {micros.map((micro) => (
-                                <div key={micro.id} style={{
-                                    background: 'rgba(255, 255, 255, 0.5)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '12px',
-                                    padding: '1.5rem',
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-                                    gap: '1.5rem'
-                                }}>
-                                    <div>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Código</span>
-                                        <strong style={{ fontSize: '1.05rem', color: 'var(--primary-color)' }}>{micro.code || '-'}</strong>
-                                    </div>
-
-                                    <div>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Microorganismo</span>
-                                        <strong style={{ fontSize: '1.05rem' }}>{micro.name || '-'}</strong>
-                                    </div>
-
-                                    <div>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>pH</span>
-                                        <span style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>{micro.ph || '-'}</span>
-                                    </div>
-
-                                    <div>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Produto Comercial</span>
-                                        <strong style={{ fontSize: '1.05rem', color: 'var(--primary-color)' }}>{micro.commercial_product || '-'}</strong>
-                                    </div>
-
-                                    <div style={{ gridColumn: '1 / -1', background: 'rgba(52, 199, 89, 0.05)', borderRadius: '8px', padding: '1rem', borderLeft: '4px solid var(--success-color)', marginTop: '0.5rem' }}>
-                                        <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--success-color)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.75rem' }}>Microrganismos Recuperados</span>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                            {(micro.recovered && micro.recovered.length > 0 ? micro.recovered : (micro.name || micro.cfu_per_ml ? [{ name: micro.name, cfu_per_ml: micro.cfu_per_ml }] : [])).map((rec, i, arr) => (
-                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: i !== arr.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none', paddingBottom: i !== arr.length - 1 ? '0.5rem' : 0 }}>
-                                                    <span style={{ fontWeight: 500 }}>{rec.name || '-'}</span>
-                                                    <span className="badge" style={{ background: 'rgba(52, 199, 89, 0.15)', color: '#2d8a43' }}>{rec.cfu_per_ml || '-'}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            {/* Suporte a novo formato (samples[]) e legado (objeto flat) */}
+                            {(report.matrix_results?.samples || [report.matrix_results]).map((sample, sIndex) => (
+                                <div key={sIndex} style={{ border: '1px solid #dcfce7', borderRadius: '12px', overflow: 'hidden', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                                    {/* Identificação */}
+                                    {sample?.identification && (
+                                        <div style={{ background: '#f0fdf4', borderBottom: '1px solid #dcfce7', padding: '1rem 1.5rem', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                                            <div>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Identificação</span>
+                                                <div style={{ fontWeight: 600, color: '#15803d', marginTop: '0.2rem' }}>{sample.identification}</div>
+                                            </div>
+                                            {sample?.analytical_technique && (
+                                                <div>
+                                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Técnica Analítica</span>
+                                                    <div style={{ fontWeight: 500, color: '#1e293b', marginTop: '0.2rem' }}>{sample.analytical_technique}</div>
                                                 </div>
-                                            ))}
-                                            {(!micro.recovered || micro.recovered.length === 0) && !micro.name && !micro.cfu_per_ml && (
-                                                <div style={{ color: 'var(--text-muted)' }}>Nenhum microrganismo recuperado informado.</div>
                                             )}
                                         </div>
-                                    </div>
-
-                                    <div>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Enterobactérias</span>
-                                        <span style={{ color: 'var(--text-main)' }}>{micro.enterobacteria || '-'}</span>
-                                    </div>
-
-                                    <div>
-                                        <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Bolor / Levedura</span>
-                                        <span style={{ color: 'var(--text-main)' }}>{micro.mold_yeast || '-'}</span>
-                                    </div>
-
-                                    {micro.observations && (
-                                        <div style={{ gridColumn: '1 / -1', background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--border-color)', marginTop: '0.5rem' }}>
-                                            <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Observações da amostra</span>
-                                            <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>{micro.observations}</p>
-                                        </div>
                                     )}
+
+                                    <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        {/* Patogênicos */}
+                                        {sample?.pathogenic?.some(i => i.genus) && (
+                                            <div style={{ borderLeft: '4px solid #16a34a', padding: '1rem 1.25rem', borderRadius: '8px', background: '#f0fdf4' }}>
+                                                <h4 style={{ color: '#15803d', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Gêneros Patogênicos</h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                    {sample.pathogenic.filter(i => i.genus).map((item, idx) => (
+                                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5rem' }}>
+                                                            <span style={{ fontWeight: 500, color: '#1e293b', fontStyle: 'italic' }}>{item.genus}</span>
+                                                            <span style={{ fontWeight: 600, color: '#15803d', background: '#bbf7d0', padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.9rem' }}>{item.percent}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Deteriorantes */}
+                                        {sample?.deteriorating?.some(i => i.genus) && (
+                                            <div style={{ borderLeft: '4px solid #4ade80', padding: '1rem 1.25rem', borderRadius: '8px', background: '#f0fdf4' }}>
+                                                <h4 style={{ color: '#15803d', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Deteriorante / Armazenamento</h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                    {sample.deteriorating.filter(i => i.genus).map((item, idx) => (
+                                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5rem' }}>
+                                                            <span style={{ fontWeight: 500, color: '#1e293b', fontStyle: 'italic' }}>{item.genus}</span>
+                                                            <span style={{ fontWeight: 600, color: '#15803d', background: '#bbf7d0', padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.9rem' }}>{item.percent}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Contaminantes */}
+                                        {sample?.contaminating?.some(i => i.genus) && (
+                                            <div style={{ borderLeft: '4px solid #86efac', padding: '1rem 1.25rem', borderRadius: '8px', background: '#f0fdf4' }}>
+                                                <h4 style={{ color: '#15803d', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Contaminante</h4>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                    {sample.contaminating.filter(i => i.genus).map((item, idx) => (
+                                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5rem' }}>
+                                                            <span style={{ fontWeight: 500, color: '#1e293b', fontStyle: 'italic' }}>{item.genus}</span>
+                                                            <span style={{ fontWeight: 600, color: '#15803d', background: '#bbf7d0', padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.9rem' }}>{item.percent}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
-                    )}
-                </div>
+                    </div>
+                ) : report.report_type === 'solos' ? (
+                    <div className="card">
+                        <h2 style={{ marginBottom: '2rem' }}>
+                            <Microscope size={24} color="var(--primary-color)" /> Análises de Solos
+                        </h2>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {report.matrix_results?.samples?.map((sample, sIndex) => (
+                                <div key={sIndex} style={{
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '12px',
+                                    padding: '1.5rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '1.5rem',
+                                    background: '#fff',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f0f0f0', paddingBottom: '1rem' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CÓDIGO DA AMOSTRA</span>
+                                            <div style={{ color: 'var(--primary-color)', fontWeight: 700, fontSize: '1.1rem', marginTop: '0.2rem' }}>{sample.code}</div>
+                                        </div>
+                                        <div style={{ flex: 3 }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>IDENTIFICAÇÃO</span>
+                                            <div style={{ fontWeight: 600, color: 'var(--text-main)', marginTop: '0.2rem', whiteSpace: 'pre-wrap' }}>{sample.identification}</div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '1.5rem' }}>
+                                        <div style={{
+                                            borderLeft: '4px solid #ea580c',
+                                            padding: '1.25rem',
+                                            borderRadius: '8px',
+                                            background: '#fff7ed'
+                                        }}>
+                                            <h4 style={{ color: '#c2410c', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', letterSpacing: '0.05em' }}>GÊNERO</h4>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                {sample.microorganisms?.map((micro, mIndex) => (
+                                                    <div key={mIndex} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5rem' }}>
+                                                        <span style={{ fontWeight: 500, color: '#1e293b' }}>{micro.genus}</span>
+                                                        <span style={{ fontWeight: 600, color: '#c2410c', background: '#ffedd5', padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.9rem' }}>{micro.count}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : report.report_type === 'raizes' ? (
+                    <div className="card">
+                        <h2 style={{ marginBottom: '2rem' }}>
+                            <Microscope size={24} color="#0891b2" /> Análises de Raízes
+                        </h2>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            {report.matrix_results?.samples?.map((sample, sIndex) => (
+                                <div key={sIndex} style={{
+                                    border: '1px solid #cffafe',
+                                    borderRadius: '12px',
+                                    padding: '1.5rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '1.5rem',
+                                    background: '#fff',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f0f0f0', paddingBottom: '1rem' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>CÓDIGO DA AMOSTRA</span>
+                                            <div style={{ color: '#0891b2', fontWeight: 700, fontSize: '1.1rem', marginTop: '0.2rem' }}>{sample.code}</div>
+                                        </div>
+                                        <div style={{ flex: 3 }}>
+                                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>IDENTIFICAÇÃO</span>
+                                            <div style={{ fontWeight: 600, color: 'var(--text-main)', marginTop: '0.2rem', whiteSpace: 'pre-wrap' }}>{sample.identification}</div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{
+                                        borderLeft: '4px solid #0891b2',
+                                        padding: '1.25rem',
+                                        borderRadius: '8px',
+                                        background: '#ecfeff'
+                                    }}>
+                                        <h4 style={{ color: '#0891b2', fontSize: '0.85rem', fontWeight: 700, marginBottom: '1rem', letterSpacing: '0.05em' }}>GÊNCEROS ENCONTRADOS</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            {sample.microorganisms?.map((micro, mIndex) => (
+                                                <div key={mIndex} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '0.5rem' }}>
+                                                    <span style={{ fontWeight: 500, color: '#1e293b', fontStyle: 'italic' }}>{micro.genus}</span>
+                                                    <span style={{ fontWeight: 700, color: '#0891b2', background: '#cffafe', padding: '0.25rem 0.75rem', borderRadius: '1rem', fontSize: '0.85rem' }}>Presente</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="card">
+                        <h2 style={{ marginBottom: '2rem' }}>
+                            <Microscope size={24} color="var(--primary-color)" /> Análises Microbiológicas
+                        </h2>
+
+                        {micros.length === 0 ? (
+                            <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>Nenhum microorganismo registrado neste laudo.</p>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {micros.map((micro) => (
+                                    <div key={micro.id} style={{
+                                        background: 'rgba(255, 255, 255, 0.5)',
+                                        border: '1px solid var(--border-color)',
+                                        borderRadius: '12px',
+                                        padding: '1.5rem',
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                                        gap: '1.5rem'
+                                    }}>
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Código</span>
+                                            <strong style={{ fontSize: '1.05rem', color: 'var(--primary-color)' }}>{micro.code || '-'}</strong>
+                                        </div>
+
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Microorganismo</span>
+                                            <strong style={{ fontSize: '1.05rem' }}>{micro.name || '-'}</strong>
+                                        </div>
+
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>pH</span>
+                                            <span style={{ fontSize: '1.05rem', color: 'var(--text-main)' }}>{micro.ph || '-'}</span>
+                                        </div>
+
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Produto Comercial</span>
+                                            <strong style={{ fontSize: '1.05rem', color: 'var(--primary-color)' }}>{micro.commercial_product || '-'}</strong>
+                                        </div>
+
+                                        <div style={{ gridColumn: '1 / -1', background: 'rgba(52, 199, 89, 0.05)', borderRadius: '8px', padding: '1rem', borderLeft: '4px solid var(--success-color)', marginTop: '0.5rem' }}>
+                                            <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--success-color)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.75rem' }}>Microrganismos Recuperados</span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                {(micro.recovered && micro.recovered.length > 0 ? micro.recovered : (micro.name || micro.cfu_per_ml ? [{ name: micro.name, cfu_per_ml: micro.cfu_per_ml }] : [])).map((rec, i, arr) => (
+                                                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: i !== arr.length - 1 ? '1px solid rgba(0,0,0,0.05)' : 'none', paddingBottom: i !== arr.length - 1 ? '0.5rem' : 0 }}>
+                                                        <span style={{ fontWeight: 500 }}>{rec.name || '-'}</span>
+                                                        <span className="badge" style={{ background: 'rgba(52, 199, 89, 0.15)', color: '#2d8a43' }}>{rec.cfu_per_ml || '-'}</span>
+                                                    </div>
+                                                ))}
+                                                {(!micro.recovered || micro.recovered.length === 0) && !micro.name && !micro.cfu_per_ml && (
+                                                    <div style={{ color: 'var(--text-muted)' }}>Nenhum microrganismo recuperado informado.</div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Enterobactérias</span>
+                                            <span style={{ color: 'var(--text-main)' }}>{micro.enterobacteria || '-'}</span>
+                                        </div>
+
+                                        <div>
+                                            <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.25rem' }}>Bolor / Levedura</span>
+                                            <span style={{ color: 'var(--text-main)' }}>{micro.mold_yeast || '-'}</span>
+                                        </div>
+
+                                        {micro.observations && (
+                                            <div style={{ gridColumn: '1 / -1', background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '8px', borderLeft: '4px solid var(--border-color)', marginTop: '0.5rem' }}>
+                                                <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>Observações da amostra</span>
+                                                <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-main)', whiteSpace: 'pre-wrap' }}>{micro.observations}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Considerações do Laudo */}
@@ -441,7 +622,15 @@ export default function ReportView() {
 
             {/* Hidden PDF Template Container */}
             <div style={{ position: 'absolute', top: 0, left: '-9999px' }}>
-                <ReportPDFTemplate ref={pdfRef} report={report} micros={micros} />
+                {report.report_type === 'sementes' ? (
+                    <SeedReportPDFTemplate ref={pdfRef} report={report} />
+                ) : report.report_type === 'solos' ? (
+                    <SoilReportPDFTemplate ref={pdfRef} report={report} />
+                ) : report.report_type === 'raizes' ? (
+                    <RootReportPDFTemplate ref={pdfRef} report={report} />
+                ) : (
+                    <ReportPDFTemplate ref={pdfRef} report={report} micros={micros} />
+                )}
             </div>
 
         </div>
