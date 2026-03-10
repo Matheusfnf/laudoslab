@@ -3,7 +3,7 @@
 import { Inter } from 'next/font/google'
 import './globals.css'
 import Link from 'next/link'
-import { Microscope, FileText, Factory, LogOut, Home } from 'lucide-react'
+import { Microscope, FileText, Factory, LogOut, Home, BarChart2 } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import LoginScreen from '@/components/LoginScreen'
@@ -45,6 +45,8 @@ export default function RootLayout({ children }) {
       isActive = pathname === '/';
     } else if (path === '/laudos') {
       isActive = pathname === '/laudos' || pathname?.startsWith('/report') || pathname?.startsWith('/edit') || pathname?.startsWith('/create') || pathname?.startsWith('/clients');
+    } else if (path === '/relatorios') {
+      isActive = pathname === '/relatorios' || pathname?.startsWith('/relatorios');
     } else {
       isActive = pathname === path || pathname?.startsWith(path);
     }
@@ -80,9 +82,8 @@ export default function RootLayout({ children }) {
           <>
             {/* Navigation Bar */}
             <nav className="navbar">
-              <Link href="/" className="nav-brand">
-                <Microscope size={28} />
-                <span>Proativa Lab</span>
+              <Link href="/" className="nav-link" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+                <img src="/logos/Proativa logo colorida svg.svg" alt="Proativa Lab" style={{ height: '56px', objectFit: 'contain' }} />
               </Link>
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <div className="nav-links">
@@ -94,6 +95,9 @@ export default function RootLayout({ children }) {
                   </Link>
                   <Link href="/producao" className="nav-link" style={getLinkStyle('/producao')}>
                     <Factory size={18} /> Produção
+                  </Link>
+                  <Link href="/relatorios" className="nav-link" style={getLinkStyle('/relatorios')}>
+                    <BarChart2 size={18} /> Relatórios
                   </Link>
                 </div>
               </div>

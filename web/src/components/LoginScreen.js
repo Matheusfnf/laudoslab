@@ -131,8 +131,6 @@ export default function LoginScreen({ onLogin }) {
                 border: '1px solid rgba(255, 255, 255, 0.6)',
                 padding: 'clamp(2rem, 5vw, 3rem) clamp(1.5rem, 4vw, 2.5rem)',
                 borderRadius: '24px',
-                boxShadow: '0 20px 40px -10px rgba(0,0,0,0.1), 0 10px 20px -10px rgba(0,0,0,0.05)',
-                width: '100%',
                 maxWidth: '420px',
                 animation: 'slideUp 0.5s ease'
             }}>
@@ -141,17 +139,12 @@ export default function LoginScreen({ onLogin }) {
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: '72px',
-                        height: '72px',
-                        borderRadius: '20px',
-                        background: 'linear-gradient(135deg, var(--primary-color) 0%, #0369a1 100%)',
-                        color: 'white',
-                        marginBottom: '1.5rem',
-                        boxShadow: '0 10px 25px -5px rgba(14, 165, 233, 0.4)'
+                        width: '260px',
+                        height: '120px',
+                        marginBottom: '1rem',
                     }}>
-                        <Microscope size={36} />
+                        <img src="/logos/Proativa logo colorida svg.svg" alt="Proativa Lab Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     </div>
-                    <h1 style={{ fontSize: '1.8rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>Proativa Lab</h1>
                     <p style={{ color: '#64748b', fontSize: '1rem' }}>Gerenciamento de Laudos CQ</p>
                 </div>
 
@@ -307,6 +300,6 @@ export default function LoginScreen({ onLogin }) {
                     to { opacity: 1; }
                 }
             `}</style>
-        </div>
+        </div >
     )
 }
