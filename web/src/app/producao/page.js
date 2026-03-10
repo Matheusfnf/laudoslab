@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText, Clipboard as ClipBoard, Layers } from 'lucide-react'
+import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText, Clipboard as ClipBoard, Layers, Printer } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -612,6 +612,157 @@ export default function Producao() {
         return `${day}/${month}/${year}`;
     }
 
+    const handlePrintLabel = (batch) => {
+        const printWindow = window.open('', '', 'width=800,height=600');
+        if (!printWindow) {
+            alert("Por favor, permita pop-ups para imprimir a etiqueta.");
+            return;
+        }
+
+        // O usuário solicitou que o volume seja sempre "5 Litros" para a etiqueta
+        const volumeText = `Volume: 5 Litros`;
+
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Etiqueta ${batch.batchNumber}</title>
+                <style>
+                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+                    body {
+                        font-family: 'Inter', sans-serif;
+                        margin: 0;
+                        padding: 0;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        width: 100vw;
+                        height: 100vh;
+                        background: #f8fafc;
+                        color: #000;
+                    }
+                    .label-container {
+                        width: 15cm;
+                        height: 10cm;
+                        padding: 1.5cm;
+                        box-sizing: border-box;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        align-items: center;
+                        text-align: center;
+                        background: #fff;
+                        border: 1px dashed #ccc;
+                    }
+                    @media print {
+                        body {
+                            align-items: flex-start;
+                            justify-content: flex-start;
+                            background: none;
+                        }
+                        .label-container {
+                            border: none;
+                            width: 100%;
+                            height: 100%;
+                            page-break-after: always;
+                            padding: 0;
+                        }
+                        @page {
+                            size: 15cm 10cm;
+                            margin: 0;
+                        }
+                    }
+                    .title {
+                        font-size: 38px;
+                        font-weight: 800;
+                        text-transform: uppercase;
+                        margin: 0;
+                        line-height: 1.2;
+                    }
+                    .volume {
+                        font-size: 28px;
+                        font-weight: 700;
+                        margin: 14px 0 16px 0;
+                    }
+                    .info-col {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 12px;
+                        font-size: 20px;
+                        width: 100%;
+                        margin-bottom: 20px;
+                    }
+                    .info-item {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .info-bold {
+                        font-weight: 800;
+                        margin-left: 10px;
+                        font-size: 22px;
+                    }
+                    .conservation {
+                        font-size: 16px;
+                        font-weight: 700;
+                        margin-bottom: 12px;
+                        text-transform: uppercase;
+                    }
+                    .agite {
+                        font-size: 16px;
+                        font-weight: 800;
+                        text-transform: uppercase;
+                    }
+                    .logo-container {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        width: 100%;
+                        margin-top: 10px;
+                    }
+                    .logo-img {
+                        height: 60px;
+                        object-fit: contain;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="label-container">
+                    <div>
+                        <div class="title">${batch.productName}</div>
+                        <div class="volume">${volumeText}</div>
+                    </div>
+                    
+                    <div class="info-col">
+                        <div class="info-item">Lote: <span class="info-bold">${batch.batchNumber}</span></div>
+                        <div class="info-item">Fab: <span class="info-bold">${formatDateForDisplay(batch.manufactureDate)}</span></div>
+                        <div class="info-item">Val: <span class="info-bold">${formatDateForDisplay(batch.expirationDate)}</span></div>
+                    </div>
+
+                    <div>
+                        <div class="conservation">CONSERVAÇÃO: MANTER REFRIGERADO.</div>
+                        <div class="agite">AGITE BEM ANTES DE USAR.</div>
+                    </div>
+
+                    <div class="logo-container">
+                        <img src="${window.location.origin}/logos/logo.png" class="logo-img" alt="Proativa Lab Logo" onerror="this.style.display='none'"/>
+                    </div>
+                </div>
+                <script>
+                    window.onload = () => {
+                        window.print();
+                    };
+                </script>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+    };
+
     if (isLoading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -946,6 +1097,7 @@ export default function Producao() {
                                                                     </h4>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                                         <button onClick={(e) => { e.stopPropagation(); router.push(`/producao/certificado/${batch.id}`) }} style={{ background: 'transparent', border: 'none', color: '#10b981', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }} title="Emitir Certificado"><ScrollText size={15} /></button>
+                                                                        <button onClick={(e) => { e.stopPropagation(); handlePrintLabel(batch) }} style={{ background: 'transparent', border: 'none', color: '#6366f1', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }} title="Imprimir Etiqueta"><Printer size={15} /></button>
                                                                         <button onClick={() => handleEditBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px' }} title="Editar Lote"><Edit2 size={14} /></button>
                                                                         <button onClick={() => handleDeleteBatch(batch)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '2px' }} title="Excluir Lote"><Trash2 size={14} /></button>
                                                                         <GripVertical size={16} color="#cbd5e1" className="grip-handle" style={{ flexShrink: 0, cursor: 'grab', marginLeft: '4px' }} />
