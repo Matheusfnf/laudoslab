@@ -76,6 +76,12 @@ export default function RootLayout({ children }) {
           <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
             <p style={{ color: 'var(--primary-color)', fontWeight: 600 }}>Carregando...</p>
           </div>
+        ) : pathname && pathname.startsWith('/p/') ? (
+          <div className="main-wrapper" style={{ minHeight: '100vh', background: '#f8fafc' }}>
+            <div className="container" style={{ padding: '0', margin: '0 auto', width: '100%' }}>
+              {children}
+            </div>
+          </div>
         ) : !user ? (
           <LoginScreen onLogin={handleLogin} />
         ) : (

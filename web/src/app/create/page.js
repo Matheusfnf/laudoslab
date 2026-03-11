@@ -43,6 +43,8 @@ export default function CreateReport() {
         analytical_matrix: '' // ex: semente de feijão, amostra de solo
     })
 
+    const [createdReportId, setCreatedReportId] = useState(null)
+
     const [clients, setClients] = useState([])
     const [selectedClientProperties, setSelectedClientProperties] = useState([])
 
@@ -463,6 +465,7 @@ export default function CreateReport() {
                 }
             }
 
+            setCreatedReportId(reportId)
             setSuccess(true)
         } catch (err) {
             console.error("Supabase Error Details:", err.message || err)
@@ -485,6 +488,7 @@ export default function CreateReport() {
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                     <button className="btn btn-secondary" onClick={() => {
                         setSuccess(false)
+                        setCreatedReportId(null)
                         setHeader({ name: '', client_id: '', property: '', collected_by: '', issue_date: new Date().toISOString().split('T')[0], entry_date: new Date().toISOString().split('T')[0], requester: '', delivered_by: '', collection_date: '', city: '', state: '' })
                         setMicros([{ code: '', name: '', ph: '', recovered: [{ name: '', cfu_per_ml: '' }], enterobacteria: '', mold_yeast: '', commercial_product: '' }])
                         setSelectedClientProperties([])
@@ -492,6 +496,17 @@ export default function CreateReport() {
                     }}>
                         Criar Novo Laudo
                     </button>
+                    {createdReportId && (
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => window.open(`/report/${createdReportId}/label`, '_blank')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#8b5cf6', borderColor: '#8b5cf6', color: '#fff' }}
+                            title="Imprimir etiquetas 6x4 com QR Code"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                            Imprimir Etiqueta
+                        </button>
+                    )}
                     <button className="btn btn-primary" onClick={() => router.push('/laudos')}>
                         Voltar ao Início
                     </button>

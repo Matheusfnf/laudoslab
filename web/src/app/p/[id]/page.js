@@ -3,14 +3,13 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
-import { ArrowLeft, Calendar, User, MapPin, Microscope, CheckCircle, Trash2, Download, Image as ImageIcon, Copy, AlertTriangle } from 'lucide-react'
+import { Calendar, User, MapPin, Microscope, Download, Image as ImageIcon, AlertTriangle } from 'lucide-react'
 import ReportPDFTemplate from '@/components/ReportPDFTemplate'
 import SeedReportPDFTemplate from '@/components/SeedReportPDFTemplate'
 import SoilReportPDFTemplate from '@/components/SoilReportPDFTemplate'
 import RootReportPDFTemplate from '@/components/RootReportPDFTemplate'
 
-export default function ReportView() {
+export default function PublicReportView() {
     const { id } = useParams()
     const router = useRouter()
 
@@ -18,15 +17,9 @@ export default function ReportView() {
     const [micros, setMicros] = useState([])
     const [loading, setLoading] = useState(true)
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
-    const [isCreatingMod, setIsCreatingMod] = useState(false)
-    const [userRole, setUserRole] = useState('user')
     const pdfRef = useRef(null)
 
     useEffect(() => {
-        const savedUser = localStorage.getItem('proativa_auth_user')
-        if (savedUser) {
-            setUserRole(JSON.parse(savedUser).role || 'user')
-        }
         if (id) {
             fetchReportDetails()
         }
@@ -43,6 +36,7 @@ export default function ReportView() {
             if (uuidRegex.test(id)) {
                  query = query.eq('id', id)
             } else {
+                 // Decode in case spaces are URL encoded
                  query = query.eq('name', decodeURIComponent(id))
             }
 
@@ -50,19 +44,11 @@ export default function ReportView() {
 
             if (reportError) throw reportError
 
-            // Block access if report is modified and user is not diretoria
-            const savedUser = localStorage.getItem('proativa_auth_user')
-            const currentRole = savedUser ? JSON.parse(savedUser).role : 'user'
-            if (reportData.is_modified && currentRole !== 'diretoria') {
-                router.replace('/')
-                return
-            }
-
             setReport(reportData)
 
+            // Fetch microorganisms using the actual report ID from data (in case we searched by name)
             const actualReportId = reportData.id;
 
-            // Fetch microorganisms
             const { data: microsData, error: microsError } = await supabase
                 .from('microorganisms')
                 .select('*')
@@ -74,29 +60,6 @@ export default function ReportView() {
         } catch (error) {
             console.error('Error fetching report:', error.message)
         } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleDeleteReport = async () => {
-        if (!window.confirm('Tem certeza que deseja excluir este laudo? Esta ação não pode ser desfeita.')) {
-            return
-        }
-
-        try {
-            setLoading(true)
-            const { error } = await supabase
-                .from('reports')
-                .delete()
-                .eq('id', id)
-
-            if (error) throw error
-
-            alert('Laudo excluído com sucesso!')
-            router.push('/laudos')
-        } catch (err) {
-            console.error(err)
-            alert('Erro ao excluir laudo.')
             setLoading(false)
         }
     }
@@ -126,132 +89,55 @@ export default function ReportView() {
         }
     }
 
-    const handleCreateModification = async () => {
-        try {
-            setIsCreatingMod(true)
-
-            // 1. Duplica report
-            const { clients, id: oldId, created_at, ...reportDataToCopy } = report
-
-            const { data: newReport, error: repErr } = await supabase
-                .from('reports')
-                .insert([{
-                    ...reportDataToCopy,
-                    is_modified: true,
-                    parent_report_id: oldId
-                }])
-                .select()
-                .single()
-
-            if (repErr) throw repErr
-
-            // 2. Duplica microorganisms
-            if (micros.length > 0) {
-                const microsToCopy = micros.map(m => {
-                    const { id: mId, created_at: mCreated, report_id, ...rest } = m
-                    return {
-                        ...rest,
-                        report_id: newReport.id,
-                        is_modified: true,
-                        parent_microorganism_id: mId
-                    }
-                })
-
-                const { error: micErr } = await supabase
-                    .from('microorganisms')
-                    .insert(microsToCopy)
-
-                if (micErr) throw micErr
-            }
-
-            alert('Laudo modificado criado com sucesso! Redirecionando para edição...')
-            router.push(`/edit/${newReport.id}`)
-
-        } catch (err) {
-            console.error('Erro ao criar modificação:', err.message)
-            alert('Erro ao criar modificação.')
-        } finally {
-            setIsCreatingMod(false)
-        }
-    }
-
     if (loading) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center' }}>Carregando laudo...</div>
+            <div style={{ padding: '2rem', textAlign: 'center', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <p style={{ color: 'var(--primary-color)', fontWeight: 600 }}>Carregando laudo...</p>
+            </div>
         )
     }
 
     if (!report) {
         return (
-            <div style={{ textAlign: 'center', padding: '5rem' }}>
+            <div style={{ textAlign: 'center', padding: '5rem', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <h2>Laudo não encontrado</h2>
-                <Link href="/laudos">
-                    <button className="btn btn-secondary" style={{ marginTop: '1rem' }}>Voltar ao Início</button>
-                </Link>
+                <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>O laudo que você está tentando acessar não existe ou foi removido.</p>
             </div>
         )
     }
 
     return (
-        <div style={{ paddingBottom: '3rem', maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{ padding: '2rem 1rem 4rem 1rem', maxWidth: '900px', margin: '0 auto' }}>
+            {/* Header / Logo for Public View */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '2rem' }}>
+                <img src="/logos/Proativa logo colorida svg.svg" alt="Proativa Lab" style={{ height: '60px', objectFit: 'contain' }} />
+            </div>
+
             {report.is_modified && (
                 <div style={{ background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '0.75rem 1.25rem', borderRadius: '8px', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 600 }}>
                     <AlertTriangle size={20} />
                     <span>ESTE É UM LAUDO MODIFICADO (Cópia da versão enviada ao cliente).</span>
                 </div>
             )}
-            <div className="header-actions">
+
+            <div className="header-actions" style={{ flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1.5rem', marginBottom: '3rem' }}>
                 <div>
-                    <button className="btn btn-secondary" onClick={() => router.push(report.is_modified ? '/laudos/modificados' : '/laudos')} style={{ padding: '0.5rem 1rem', marginBottom: '1.5rem' }}>
-                        <ArrowLeft size={16} /> Voltar
-                    </button>
-                    <h1 className="title-main">{report.name}</h1>
+                    <h1 className="title-main" style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{report.name}</h1>
                     <p className="title-sub">Detalhes e análises deste laudo microbiológico.</p>
                 </div>
-                <div style={{ alignSelf: 'flex-start', display: 'flex', gap: '1rem' }}>
-                    <button
-                        className="btn btn-primary"
-                        onClick={handleDownloadPDF}
-                        disabled={isGeneratingPDF}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', backgroundColor: '#00b0f0', borderColor: '#00b0f0', color: '#fff' }}
-                    >
-                        {isGeneratingPDF ? <span className="spinner" style={{ width: 16, height: 16, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', display: 'inline-block' }} /> : <Download size={18} />}
-                        {isGeneratingPDF ? 'Gerando...' : 'Baixar PDF'}
-                    </button>
-                    <button
-                        className="btn btn-primary"
-                        onClick={() => window.open(`/report/${report.id}/label`, '_blank')}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', backgroundColor: '#8b5cf6', borderColor: '#8b5cf6', color: '#fff' }}
-                        title="Imprimir etiquetas 6x4 com QR Code"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                        Imprimir Etiqueta
-                    </button>
-                    <button
-                        className="btn btn-secondary"
-                        onClick={handleDeleteReport}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', color: '#c62828', borderColor: '#ffcdd2', background: '#ffebee' }}
-                    >
-                        <Trash2 size={18} />
-                        Excluir
-                    </button>
-                    {userRole === 'diretoria' && !report.is_modified && (
-                        <button
-                            className="btn btn-secondary"
-                            onClick={handleCreateModification}
-                            disabled={isCreatingMod}
-                            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', borderColor: '#f59e0b', color: '#d97706', background: '#fef3c7' }}
-                        >
-                            {isCreatingMod ? 'Criando...' : <><Copy size={18} /> Criar Modificação</>}
-                        </button>
-                    )}
-                    <Link href={`/edit/${report.id}`}>
-                        <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', background: '#fff' }}>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            Editar Laudo
-                        </button>
-                    </Link>
-                </div>
+                <button
+                    className="btn btn-primary"
+                    onClick={handleDownloadPDF}
+                    disabled={isGeneratingPDF}
+                    style={{ 
+                        display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.8rem 1.5rem', 
+                        backgroundColor: '#00b0f0', borderColor: '#00b0f0', color: '#fff', fontSize: '1.1rem',
+                        boxShadow: '0 4px 6px -1px rgba(0, 176, 240, 0.2), 0 2px 4px -1px rgba(0, 176, 240, 0.1)'
+                    }}
+                >
+                    {isGeneratingPDF ? <span className="spinner" style={{ width: 18, height: 18, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', display: 'inline-block' }} /> : <Download size={20} />}
+                    {isGeneratingPDF ? 'Gerando PDF...' : 'Baixar PDF do Laudo'}
+                </button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -612,7 +498,7 @@ export default function ReportView() {
 
             {/* Anexos Fotográficos */}
             {report.images && report.images.length > 0 && (
-                <div className="card">
+                <div className="card" style={{ marginTop: '2rem' }}>
                     <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <ImageIcon size={20} color="var(--primary-color)" /> Anexos Fotográficos
                     </h2>
@@ -635,6 +521,13 @@ export default function ReportView() {
                     </div>
                 </div>
             )}
+
+            {/* Footer */}
+            <div style={{ textAlign: 'center', marginTop: '4rem', padding: '2rem 0', borderTop: '1px solid #e2e8f0' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                    © {new Date().getFullYear()} Proativa Lab. Todos os direitos reservados.
+                </p>
+            </div>
 
             {/* Hidden PDF Template Container */}
             <div style={{ position: 'absolute', top: 0, left: '-9999px' }}>
