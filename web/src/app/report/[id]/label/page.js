@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import QRCode from 'react-qr-code'
+import html2canvas from 'html2canvas'
 
 export default function LabelPrintView() {
     const { id } = useParams()
@@ -37,9 +38,31 @@ export default function LabelPrintView() {
 
             setReport(reportData)
             
-            // Wait a brief moment for layout to settle, then trigger print
-            setTimeout(() => {
-                window.print()
+            // Wait a brief moment for layout to settle, then generate and download PNG
+            setTimeout(async () => {
+                try {
+                    const labelElement = document.querySelector('.label-page')
+                    if (labelElement) {
+                        const canvas = await html2canvas(labelElement, {
+                            scale: 4, // High resolution for printing
+                            useCORS: true,
+                            backgroundColor: '#ffffff'
+                        })
+                        
+                        const image = canvas.toDataURL('image/png')
+                        const link = document.createElement('a')
+                        link.href = image
+                        
+                        const safeName = reportData.name ? reportData.name.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'etiqueta'
+                        link.download = `etiqueta-${safeName}.png`
+                        
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                    }
+                } catch (err) {
+                    console.error('Error generating label PNG:', err)
+                }
             }, 500)
 
         } catch (error) {
