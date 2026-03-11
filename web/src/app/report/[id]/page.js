@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, User, MapPin, Microscope, CheckCircle, Trash2, Download, Image as ImageIcon, Copy, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Calendar, User, MapPin, Microscope, CheckCircle, Trash2, Download, Image as ImageIcon, Copy, AlertTriangle, QrCode } from 'lucide-react'
 import ReportPDFTemplate from '@/components/ReportPDFTemplate'
 import SeedReportPDFTemplate from '@/components/SeedReportPDFTemplate'
 import SoilReportPDFTemplate from '@/components/SoilReportPDFTemplate'
@@ -208,7 +208,7 @@ export default function ReportView() {
                     <h1 className="title-main">{report.name}</h1>
                     <p className="title-sub">Detalhes e análises deste laudo microbiológico.</p>
                 </div>
-                <div style={{ alignSelf: 'flex-start', display: 'flex', gap: '1rem' }}>
+                <div className="btn-wrapper-mobile" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
                     <button
                         className="btn btn-primary"
                         onClick={handleDownloadPDF}
@@ -219,13 +219,13 @@ export default function ReportView() {
                         {isGeneratingPDF ? 'Gerando...' : 'Baixar PDF'}
                     </button>
                     <button
-                        className="btn btn-primary"
+                        className="btn btn-secondary"
                         onClick={() => window.open(`/report/${report.id}/label`, '_blank')}
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', backgroundColor: '#8b5cf6', borderColor: '#8b5cf6', color: '#fff' }}
-                        title="Imprimir etiquetas 6x4 com QR Code"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', color: '#4b5563', borderColor: '#d1d5db', background: '#f3f4f6' }}
+                        title="Gerar etiqueta com QR Code"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                        Imprimir Etiqueta
+                        <QrCode size={18} />
+                        Gerar QR Code
                     </button>
                     <button
                         className="btn btn-secondary"
