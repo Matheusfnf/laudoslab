@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { FileText, Calendar, User, Microscope, ChevronRight, AlertTriangle } from 'lucide-react'
@@ -72,6 +72,7 @@ export default function ModifiedReportsDashboard() {
             const { data, error } = await query
 
             if (error) throw error
+            
             setReports(data || [])
         } catch (error) {
             console.error('Error fetching reports:', error.message)
@@ -83,6 +84,20 @@ export default function ModifiedReportsDashboard() {
     if (isCheckingRole) {
         return <div style={{ padding: '3rem', textAlign: 'center' }}>Verificando acessos...</div>
     }
+
+    const sortedReports = useMemo(() => {
+        return [...reports].sort((a, b) => {
+            const strA = String(a.name || '');
+            const strB = String(b.name || '');
+            const numA = parseInt(strA.match(/\d+/)?.[0] || '0', 10);
+            const numB = parseInt(strB.match(/\d+/)?.[0] || '0', 10);
+            if (numA !== numB) return numB - numA;
+            
+            const dateA = new Date(a.issue_date || a.created_at || 0).getTime();
+            const dateB = new Date(b.issue_date || b.created_at || 0).getTime();
+            return dateB - dateA;
+        });
+    }, [reports]);
 
     return (
         <div>
@@ -153,7 +168,7 @@ export default function ModifiedReportsDashboard() {
                     </div>
                 ) : (
                     <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
-                        {reports.map(report => {
+                        {sortedReports.map(report => {
                             const client = clients.find(c => c.id === report.client_id)
                             const clientName = client ? client.name : (report.requester || 'Cliente não vinculado')
 

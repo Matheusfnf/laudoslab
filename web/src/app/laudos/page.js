@@ -81,6 +81,7 @@ export default function Home() {
 
       const { data, error } = await query
       if (error) throw error
+      
       setReports(data || [])
     } catch (error) {
       console.error('Error fetching reports:', error.message)
@@ -99,11 +100,25 @@ export default function Home() {
   const { year: curYear, month: curMonth } = getCurrentYearMonth()
   const isCurrentMonth = navDate.year === curYear && navDate.month === curMonth
 
+  const sortedReports = useMemo(() => {
+    return [...reports].sort((a, b) => {
+      const strA = String(a.name || '');
+      const strB = String(b.name || '');
+      const numA = parseInt(strA.match(/\d+/)?.[0] || '0', 10);
+      const numB = parseInt(strB.match(/\d+/)?.[0] || '0', 10);
+      if (numA !== numB) return numB - numA;
+      
+      const dateA = new Date(a.issue_date || a.created_at || 0).getTime();
+      const dateB = new Date(b.issue_date || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [reports]);
+
   // Client-side name filter
   const filtered = useMemo(() => {
-    if (!filterName) return reports
-    return reports.filter(r => r.name?.toLowerCase().includes(filterName.toLowerCase()))
-  }, [reports, filterName])
+    if (!filterName) return sortedReports
+    return sortedReports.filter(r => (r.name || '').toString().toLowerCase().includes(filterName.toLowerCase()))
+  }, [sortedReports, filterName])
 
   function clearFilters() {
     setFilterName('')
