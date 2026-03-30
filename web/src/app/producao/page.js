@@ -331,6 +331,11 @@ export default function Producao() {
             return;
         }
 
+        if (!editingOrderId && !newOrder.receiptImage) {
+            alert("O comprovante do pedido (imagem, PDF ou áudio) é obrigatório para novos pedidos.");
+            return;
+        }
+
         try {
             let uploadedImageUrl = newOrder.receiptImageUrl;
 
@@ -1389,7 +1394,7 @@ export default function Producao() {
                             </div>
 
                             <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                                <label>Comprovante do Pedido (Opcional)</label>
+                                <label>Comprovante do Pedido {editingOrderId ? '(Opcional na edição)' : '* (Obrigatório)'}</label>
                                 {newOrder.receiptImageUrl && !newOrder.receiptImage && (
                                     <div style={{ fontSize: '0.85rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                                         <CheckCircle2 size={16} /> Comprovante já anexado. Envie outro para substituir.
@@ -1397,7 +1402,7 @@ export default function Producao() {
                                 )}
                                 <input
                                     type="file"
-                                    accept="image/*,application/pdf"
+                                    accept="image/*,application/pdf,audio/*"
                                     onChange={e => {
                                         if (e.target.files && e.target.files.length > 0) {
                                             setNewOrder({ ...newOrder, receiptImage: e.target.files[0] })
@@ -1490,25 +1495,37 @@ export default function Producao() {
                     </div>
                 )
             }
-            {/* MODAL PREVIEW IMAGEM */}
+            {/* MODAL PREVIEW IMAGEM/ARQUIVO */}
             {
                 imagePreviewUrl && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
-                        <div style={{ position: 'relative', maxWidth: '90%', maxHeight: '90%' }}>
+                        <div style={{ position: 'relative', width: '90%', maxWidth: '800px', maxHeight: '90%' }}>
                             <button
                                 onClick={() => setImagePreviewUrl(null)}
                                 style={{ position: 'absolute', top: '-40px', right: 0, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', padding: '0.5rem', borderRadius: '50%', cursor: 'pointer' }}
                             >
                                 <X size={24} />
                             </button>
-                            <img
-                                src={imagePreviewUrl}
-                                alt="Comprovante do Pedido"
-                                style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
-                            />
+                            
+                            {imagePreviewUrl.match(/\.(mp3|wav|ogg|m4a|aac)$/i) ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '3rem', background: '#f8fafc', borderRadius: '12px' }}>
+                                    <audio controls src={imagePreviewUrl} style={{ width: '100%', maxWidth: '500px' }} />
+                                </div>
+                            ) : imagePreviewUrl.match(/\.pdf$/i) ? (
+                                <iframe src={imagePreviewUrl} style={{ width: '100%', height: '80vh', border: 'none', borderRadius: '8px', background: '#fff' }} />
+                            ) : (
+                                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                    <img
+                                        src={imagePreviewUrl}
+                                        alt="Comprovante do Pedido"
+                                        style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', background: '#fff' }}
+                                    />
+                                </div>
+                            )}
+
                             <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                                 <a href={imagePreviewUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#bae6fd', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600 }}>
-                                    ↗ Abrir Original
+                                    ↗ Abrir Original / Baixar
                                 </a>
                             </div>
                         </div>
