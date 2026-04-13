@@ -81,10 +81,6 @@ export default function ModifiedReportsDashboard() {
         }
     }
 
-    if (isCheckingRole) {
-        return <div style={{ padding: '3rem', textAlign: 'center' }}>Verificando acessos...</div>
-    }
-
     const sortedReports = useMemo(() => {
         return [...reports].sort((a, b) => {
             const strA = String(a.name || '');
@@ -98,6 +94,10 @@ export default function ModifiedReportsDashboard() {
             return dateB - dateA;
         });
     }, [reports]);
+
+    if (isCheckingRole) {
+        return <div style={{ padding: '3rem', textAlign: 'center' }}>Verificando acessos...</div>
+    }
 
     return (
         <div>
