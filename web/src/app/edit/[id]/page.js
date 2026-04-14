@@ -4,8 +4,14 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { PlusCircle, Trash2, ArrowLeft, Save, CheckCircle, Loader2, Upload, X, AlertTriangle } from 'lucide-react'
+import { PlusCircle, Trash2, ArrowLeft, Save, CheckCircle, Loader2, Upload, X, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
 import ImageEditorModal from '@/components/ImageEditorModal'
+
+// Util function to capitalize only the very first letter of a string
+const capitalizeFirstLetter = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    return text.charAt(0).toUpperCase() + text.slice(1);
+};
 
 // Util function to format powers like ^5 to ⁵
 const formatSuperscript = (text) => {
@@ -82,17 +88,25 @@ export default function EditReport() {
         return { samples }
     })
 
-    const updateSeedField = (sIndex, field, value) => setSeedResults(prev => {
-        const samples = [...prev.samples]; samples[sIndex] = { ...samples[sIndex], [field]: value }; return { samples }
-    })
+    const updateSeedField = (sIndex, field, value) => {
+        let processedValue = value;
+        if (typeof processedValue === 'string' && processedValue.length > 0) processedValue = capitalizeFirstLetter(processedValue);
+        setSeedResults(prev => {
+            const samples = [...prev.samples]; samples[sIndex] = { ...samples[sIndex], [field]: processedValue }; return { samples }
+        })
+    }
 
-    const updateSeedRow = (sIndex, category, rowIndex, key, value) => setSeedResults(prev => {
-        const samples = [...prev.samples]
-        const arr = [...samples[sIndex][category]]
-        arr[rowIndex] = { ...arr[rowIndex], [key]: value }
-        samples[sIndex] = { ...samples[sIndex], [category]: arr }
-        return { samples }
-    })
+    const updateSeedRow = (sIndex, category, rowIndex, key, value) => {
+        let processedValue = value;
+        if (typeof processedValue === 'string' && processedValue.length > 0) processedValue = capitalizeFirstLetter(processedValue);
+        setSeedResults(prev => {
+            const samples = [...prev.samples]
+            const arr = [...samples[sIndex][category]]
+            arr[rowIndex] = { ...arr[rowIndex], [key]: processedValue }
+            samples[sIndex] = { ...samples[sIndex], [category]: arr }
+            return { samples }
+        })
+    }
 
     // Soil Report state
     const [soilResults, setSoilResults] = useState({
@@ -337,7 +351,11 @@ export default function EditReport() {
     }, [id])
 
     const handleHeaderChange = (e) => {
-        const { name, value } = e.target
+        let { name, value } = e.target
+
+        if (typeof value === 'string' && value.length > 0 && !['issue_date', 'entry_date', 'collection_date', 'client_id', 'report_type'].includes(name)) {
+            value = capitalizeFirstLetter(value);
+        }
 
         if (name === 'client_id') {
             const client = clients.find(c => c.id === value)
@@ -376,22 +394,28 @@ export default function EditReport() {
     }
 
     const handleMicroChange = (index, field, value) => {
+        let processedValue = value;
+        if (typeof processedValue === 'string' && processedValue.length > 0) processedValue = capitalizeFirstLetter(processedValue);
+        
         const updated = [...micros]
         // Auto-format for specific fields that might use superscripts
         if (['enterobacteria', 'mold_yeast'].includes(field)) {
-            updated[index][field] = formatSuperscript(value)
+            updated[index][field] = formatSuperscript(processedValue)
         } else {
-            updated[index][field] = value
+            updated[index][field] = processedValue
         }
         setMicros(updated)
     }
 
     const handleRecoveredChange = (microIndex, recIndex, field, value) => {
+        let processedValue = value;
+        if (typeof processedValue === 'string' && processedValue.length > 0) processedValue = capitalizeFirstLetter(processedValue);
+
         const updated = [...micros]
         if (field === 'cfu_per_ml') {
-            updated[microIndex].recovered[recIndex][field] = formatSuperscript(value)
+            updated[microIndex].recovered[recIndex][field] = formatSuperscript(processedValue)
         } else {
-            updated[microIndex].recovered[recIndex][field] = value
+            updated[microIndex].recovered[recIndex][field] = processedValue
         }
         setMicros(updated)
     }
@@ -460,6 +484,17 @@ export default function EditReport() {
 
     const removeImage = (indexToRemove) => {
         setImages(images.filter((_, index) => index !== indexToRemove))
+    }
+
+    const moveImage = (index, direction) => {
+        const newImages = [...images];
+        if (direction === -1 && index > 0) {
+            [newImages[index - 1], newImages[index]] = [newImages[index], newImages[index - 1]];
+            setImages(newImages);
+        } else if (direction === 1 && index < newImages.length - 1) {
+            [newImages[index + 1], newImages[index]] = [newImages[index], newImages[index + 1]];
+            setImages(newImages);
+        }
     }
 
     const handleImageDescriptionChange = (index, value) => {
@@ -770,9 +805,6 @@ export default function EditReport() {
                     <div className="card" style={{ marginBottom: '2rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                             <h2 style={{ marginBottom: 0 }}>Análise Microbiológica</h2>
-                            <button type="button" className="btn btn-secondary" onClick={addMicro} style={{ padding: '0.5rem 1rem' }}>
-                                <PlusCircle size={16} /> Adicionar
-                            </button>
                         </div>
 
                         <div className="micro-list">
@@ -898,16 +930,21 @@ export default function EditReport() {
                                         </div>
                                     </div>
 
-                                    {micros.length > 1 && (
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary"
-                                            onClick={() => removeMicro(index)}
-                                            style={{ padding: '0.75rem', background: '#ffebee', color: '#c62828', height: '42px', justifySelf: 'start', alignSelf: 'end' }}
-                                        >
-                                            <Trash2 size={16} /> Remover
+                                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-start', gap: '1rem', marginTop: '0.5rem' }}>
+                                        <button type="button" className="btn btn-secondary" onClick={addMicro} style={{ padding: '0.75rem 1rem', height: '42px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <PlusCircle size={16} /> Adicionar
                                         </button>
-                                    )}
+                                        {micros.length > 1 && (
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={() => removeMicro(index)}
+                                                style={{ padding: '0.75rem 1rem', background: '#ffebee', color: '#c62828', height: '42px', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                            >
+                                                <Trash2 size={16} /> Remover
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -1035,7 +1072,7 @@ export default function EditReport() {
                                                     onChange={(e) => {
                                                         setSoilResults(prev => {
                                                             const newArr = [...prev.samples];
-                                                            newArr[sIndex] = { ...newArr[sIndex], code: e.target.value };
+                                                            newArr[sIndex] = { ...newArr[sIndex], code: capitalizeFirstLetter(e.target.value) };
                                                             return { ...prev, samples: newArr };
                                                         });
                                                     }}
@@ -1049,7 +1086,7 @@ export default function EditReport() {
                                                     onChange={(e) => {
                                                         setSoilResults(prev => {
                                                             const newArr = [...prev.samples];
-                                                            newArr[sIndex] = { ...newArr[sIndex], identification: e.target.value };
+                                                            newArr[sIndex] = { ...newArr[sIndex], identification: capitalizeFirstLetter(e.target.value) };
                                                             return { ...prev, samples: newArr };
                                                         });
                                                     }}
@@ -1080,7 +1117,7 @@ export default function EditReport() {
                                                             setSoilResults(prev => {
                                                                 const newSamples = [...prev.samples];
                                                                 const newMicros = [...newSamples[sIndex].microorganisms];
-                                                                newMicros[mIndex] = { ...newMicros[mIndex], genus: e.target.value };
+                                                                newMicros[mIndex] = { ...newMicros[mIndex], genus: capitalizeFirstLetter(e.target.value) };
                                                                 newSamples[sIndex] = { ...newSamples[sIndex], microorganisms: newMicros };
                                                                 return { ...prev, samples: newSamples };
                                                             });
@@ -1142,7 +1179,7 @@ export default function EditReport() {
                                                     onChange={(e) => {
                                                         setRootResults(prev => {
                                                             const newArr = [...prev.samples];
-                                                            newArr[sIndex] = { ...newArr[sIndex], code: e.target.value };
+                                                            newArr[sIndex] = { ...newArr[sIndex], code: capitalizeFirstLetter(e.target.value) };
                                                             return { ...prev, samples: newArr };
                                                         });
                                                     }}
@@ -1157,7 +1194,7 @@ export default function EditReport() {
                                                     onChange={(e) => {
                                                         setRootResults(prev => {
                                                             const newArr = [...prev.samples];
-                                                            newArr[sIndex] = { ...newArr[sIndex], identification: e.target.value };
+                                                            newArr[sIndex] = { ...newArr[sIndex], identification: capitalizeFirstLetter(e.target.value) };
                                                             return { ...prev, samples: newArr };
                                                         });
                                                     }}
@@ -1187,7 +1224,7 @@ export default function EditReport() {
                                                             setRootResults(prev => {
                                                                 const newSamples = [...prev.samples];
                                                                 const newMicros = [...newSamples[sIndex].microorganisms];
-                                                                newMicros[mIndex] = { ...newMicros[mIndex], genus: e.target.value };
+                                                                newMicros[mIndex] = { ...newMicros[mIndex], genus: capitalizeFirstLetter(e.target.value) };
                                                                 newSamples[sIndex] = { ...newSamples[sIndex], microorganisms: newMicros };
                                                                 return { ...prev, samples: newSamples };
                                                             });
@@ -1266,6 +1303,26 @@ export default function EditReport() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1.5rem', marginTop: '1rem', alignItems: 'start' }}>
                             {images.map((imgObj, idx) => (
                                 <div key={idx} style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ position: 'absolute', top: '8px', left: '8px', display: 'flex', gap: '4px', zIndex: 20 }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => moveImage(idx, -1)}
+                                            disabled={idx === 0}
+                                            style={{ background: 'rgba(255, 255, 255, 0.95)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#ccc' : '#1e293b', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                                            title="Mover para trás"
+                                        >
+                                            <ChevronLeft size={18} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => moveImage(idx, 1)}
+                                            disabled={idx === images.length - 1}
+                                            style={{ background: 'rgba(255, 255, 255, 0.95)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: idx === images.length - 1 ? 'not-allowed' : 'pointer', color: idx === images.length - 1 ? '#ccc' : '#1e293b', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}
+                                            title="Mover para frente"
+                                        >
+                                            <ChevronRight size={18} />
+                                        </button>
+                                    </div>
                                     <div style={{ padding: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
                                         <img src={imgObj.url} alt={`Anexo ${idx + 1}`} style={{ maxWidth: '100%', height: 'auto', display: 'block' }} />
                                     </div>
@@ -1274,7 +1331,7 @@ export default function EditReport() {
                                             type="text"
                                             placeholder="Adicionar descrição ou observação... (opcional)"
                                             value={imgObj.description || ''}
-                                            onChange={(e) => handleImageDescriptionChange(idx, e.target.value)}
+                                            onChange={(e) => handleImageDescriptionChange(idx, capitalizeFirstLetter(e.target.value))}
                                             style={{ width: '100%', fontSize: '0.9rem', padding: '0.5rem', border: '1px solid #ccd0d5', borderRadius: '4px' }}
                                         />
                                     </div>
