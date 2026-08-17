@@ -5,6 +5,31 @@ import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, 
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+// Limite de comprovantes anexados por pedido (mínimo 1, máximo 3)
+const MAX_RECEIPTS = 3
+
+// Pedidos antigos guardam um único comprovante em receipt_image_url.
+// Os novos usam a lista receipt_image_urls. Aqui os dois viram sempre uma lista.
+const normalizeReceiptUrls = (urls, legacyUrl) => {
+    if (Array.isArray(urls)) {
+        const cleaned = urls.filter(Boolean)
+        if (cleaned.length > 0) return cleaned
+    }
+    return legacyUrl ? [legacyUrl] : []
+}
+
+// Nome legível do arquivo a partir do URL público do Storage
+const receiptLabel = (url, index) => {
+    try {
+        const raw = decodeURIComponent(url.split('/').pop().split('?')[0])
+        // O nome salvo é "<timestamp>_<random>.<ext>" — mostramos só a extensão
+        const ext = raw.includes('.') ? raw.split('.').pop().toUpperCase() : 'ARQUIVO'
+        return `Comprovante ${index + 1} (${ext})`
+    } catch {
+        return `Comprovante ${index + 1}`
+    }
+}
+
 export default function Producao() {
     const router = useRouter()
     const [orders, setOrders] = useState([])
@@ -40,8 +65,8 @@ export default function Producao() {
         requesterName: '',
         orderDate: '',
         estimatedCompletionDate: '',
-        receiptImage: null, // Novo campo para o arquivo da imagem em si
-        receiptImageUrl: '', // URL retornado do banco
+        receiptFiles: [], // Arquivos novos, ainda não enviados
+        receiptUrls: [], // URLs já salvos no banco
         items: []
     })
     const [currentItem, setCurrentItem] = useState({ productName: '', quantity: '', unit: 'UN' })
@@ -118,7 +143,7 @@ export default function Producao() {
                     requesterName: order.requester_name,
                     orderDate: order.order_date,
                     estimatedCompletionDate: order.estimated_completion_date,
-                    receiptImageUrl: order.receipt_image_url,
+                    receiptImageUrls: normalizeReceiptUrls(order.receipt_image_urls, order.receipt_image_url),
                     status: order.status,
                     items: orderItems
                 }
@@ -277,8 +302,8 @@ export default function Producao() {
             requesterName: orderToEdit.requesterName || '',
             orderDate: orderToEdit.orderDate || '',
             estimatedCompletionDate: orderToEdit.estimatedCompletionDate || '',
-            receiptImage: null, // Reset input
-            receiptImageUrl: orderToEdit.receiptImageUrl || '',
+            receiptFiles: [], // Reset input
+            receiptUrls: orderToEdit.receiptImageUrls || [],
             items: orderToEdit.items.map(i => ({
                 id: i.id, // Original ID
                 productName: i.productName,
@@ -331,23 +356,36 @@ export default function Producao() {
             return;
         }
 
-        if (!editingOrderId && !newOrder.receiptImage) {
-            alert("O comprovante do pedido (imagem, PDF ou áudio) é obrigatório para novos pedidos.");
+        const keptUrls = newOrder.receiptUrls || []
+        const pendingFiles = newOrder.receiptFiles || []
+        const totalReceipts = keptUrls.length + pendingFiles.length
+
+        // Pedidos antigos podem ter sido cadastrados sem comprovante; não travamos a edição deles.
+        const orderBeingEdited = editingOrderId ? orders.find(o => o.id === editingOrderId) : null
+        const requiresReceipt = !editingOrderId || (orderBeingEdited?.receiptImageUrls?.length > 0)
+
+        if (requiresReceipt && totalReceipts === 0) {
+            alert("É obrigatório anexar pelo menos 1 comprovante do pedido (imagem, PDF ou áudio).");
+            return;
+        }
+
+        if (totalReceipts > MAX_RECEIPTS) {
+            alert(`Você pode anexar no máximo ${MAX_RECEIPTS} comprovantes por pedido.`);
             return;
         }
 
         try {
-            let uploadedImageUrl = newOrder.receiptImageUrl;
+            // Mantém os comprovantes já salvos e envia os novos
+            const receiptUrls = [...keptUrls]
 
-            // Upload de Imagem se houver
-            if (newOrder.receiptImage) {
-                const fileExt = newOrder.receiptImage.name.split('.').pop();
+            for (const file of pendingFiles) {
+                const fileExt = file.name.split('.').pop();
                 const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
                 const filePath = `receipts/${fileName}`;
 
                 const { error: uploadError } = await supabase.storage
                     .from('production-receipts')
-                    .upload(filePath, newOrder.receiptImage, { cacheControl: '3600', upsert: false });
+                    .upload(filePath, file, { cacheControl: '3600', upsert: false });
 
                 if (uploadError) throw uploadError;
 
@@ -355,7 +393,7 @@ export default function Producao() {
                     .from('production-receipts')
                     .getPublicUrl(filePath);
 
-                uploadedImageUrl = publicUrlData.publicUrl;
+                receiptUrls.push(publicUrlData.publicUrl);
             }
 
             const payloadData = {
@@ -364,7 +402,9 @@ export default function Producao() {
                 requester_name: newOrder.requesterName || null,
                 order_date: newOrder.orderDate || null,
                 estimated_completion_date: newOrder.estimatedCompletionDate || null,
-                receipt_image_url: uploadedImageUrl || null
+                // Coluna antiga segue preenchida com o 1º comprovante (retrocompatibilidade)
+                receipt_image_url: receiptUrls[0] || null,
+                receipt_image_urls: receiptUrls.length > 0 ? receiptUrls : null
             };
 
             if (editingOrderId) {
@@ -865,7 +905,11 @@ export default function Producao() {
                                     <button
                                         onClick={() => {
                                             setEditingOrderId(null)
-                                            setNewOrder({ orderNumber: '', client: '', items: [] })
+                                            setNewOrder({
+                                                orderNumber: '', client: '', requesterName: '',
+                                                orderDate: '', estimatedCompletionDate: '',
+                                                receiptFiles: [], receiptUrls: [], items: []
+                                            })
                                             setCurrentItem({ productName: '', quantity: '', unit: 'UN' })
                                             setIsOrderModalOpen(true)
                                         }}
@@ -1032,14 +1076,15 @@ export default function Producao() {
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fffbeb', padding: '0.2rem 0.6rem', borderRadius: '20px', border: '1px solid #fde68a', whiteSpace: 'nowrap' }}>
                                         <Calendar size={13} color="#f59e0b" /> <strong style={{ color: '#f59e0b' }}>Prev:</strong> {formatDateForDisplay(orders.find(o => o.id === selectedOrderId)?.estimatedCompletionDate) || '-'}
                                     </span>
-                                    {orders.find(o => o.id === selectedOrderId)?.receiptImageUrl && (
+                                    {(orders.find(o => o.id === selectedOrderId)?.receiptImageUrls || []).map((url, idx, arr) => (
                                         <button
-                                            onClick={() => setImagePreviewUrl(orders.find(o => o.id === selectedOrderId)?.receiptImageUrl)}
+                                            key={url}
+                                            onClick={() => setImagePreviewUrl(url)}
                                             style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
                                         >
-                                            <ClipBoard size={13} /> Comprovante
+                                            <ClipBoard size={13} /> {arr.length > 1 ? `Comprovante ${idx + 1}` : 'Comprovante'}
                                         </button>
-                                    )}
+                                    ))}
                                 </div>
                             </div>
 
@@ -1394,22 +1439,100 @@ export default function Producao() {
                             </div>
 
                             <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-                                <label>Comprovante do Pedido {editingOrderId ? '(Opcional na edição)' : '* (Obrigatório)'}</label>
-                                {newOrder.receiptImageUrl && !newOrder.receiptImage && (
-                                    <div style={{ fontSize: '0.85rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                        <CheckCircle2 size={16} /> Comprovante já anexado. Envie outro para substituir.
-                                    </div>
-                                )}
-                                <input
-                                    type="file"
-                                    accept="image/*,application/pdf,audio/*"
-                                    onChange={e => {
-                                        if (e.target.files && e.target.files.length > 0) {
-                                            setNewOrder({ ...newOrder, receiptImage: e.target.files[0] })
-                                        }
-                                    }}
-                                    style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '8px', width: '100%', background: '#f8fafc' }}
-                                />
+                                {(() => {
+                                    const keptUrls = newOrder.receiptUrls || []
+                                    const pendingFiles = newOrder.receiptFiles || []
+                                    const total = keptUrls.length + pendingFiles.length
+                                    const remaining = MAX_RECEIPTS - total
+
+                                    const chipStyle = {
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        gap: '0.75rem', background: '#f0fdf4', border: '1px solid #bbf7d0',
+                                        borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '0.5rem',
+                                        fontSize: '0.85rem'
+                                    }
+                                    const removeBtnStyle = {
+                                        background: 'transparent', border: 'none', cursor: 'pointer',
+                                        color: '#ef4444', display: 'flex', alignItems: 'center', padding: '0.2rem'
+                                    }
+
+                                    return (
+                                        <>
+                                            <label>
+                                                Comprovantes do Pedido * (mínimo 1, máximo {MAX_RECEIPTS})
+                                            </label>
+
+                                            {/* Já salvos no banco */}
+                                            {keptUrls.map((url, idx) => (
+                                                <div key={url} style={chipStyle}>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#15803d', overflow: 'hidden' }}>
+                                                        <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setImagePreviewUrl(url)}
+                                                            style={{ background: 'transparent', border: 'none', padding: 0, color: '#15803d', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.85rem' }}
+                                                        >
+                                                            {receiptLabel(url, idx)}
+                                                        </button>
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        title="Remover comprovante"
+                                                        onClick={() => setNewOrder({ ...newOrder, receiptUrls: keptUrls.filter(u => u !== url) })}
+                                                        style={removeBtnStyle}
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            {/* Selecionados agora, ainda não enviados */}
+                                            {pendingFiles.map((file, idx) => (
+                                                <div key={`${file.name}_${idx}`} style={{ ...chipStyle, background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0284c7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        <ClipBoard size={16} style={{ flexShrink: 0 }} /> {file.name}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        title="Remover arquivo"
+                                                        onClick={() => setNewOrder({ ...newOrder, receiptFiles: pendingFiles.filter((_, i) => i !== idx) })}
+                                                        style={removeBtnStyle}
+                                                    >
+                                                        <Trash2 size={15} />
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            {remaining > 0 ? (
+                                                <input
+                                                    type="file"
+                                                    multiple
+                                                    accept="image/*,application/pdf,audio/*"
+                                                    onChange={e => {
+                                                        const picked = Array.from(e.target.files || [])
+                                                        if (picked.length === 0) return
+
+                                                        if (picked.length > remaining) {
+                                                            alert(`Você pode anexar no máximo ${MAX_RECEIPTS} comprovantes. Restam ${remaining}.`)
+                                                        }
+
+                                                        setNewOrder({ ...newOrder, receiptFiles: [...pendingFiles, ...picked.slice(0, remaining)] })
+                                                        e.target.value = '' // permite reenviar o mesmo arquivo depois de remover
+                                                    }}
+                                                    style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '8px', width: '100%', background: '#f8fafc' }}
+                                                />
+                                            ) : (
+                                                <div style={{ fontSize: '0.85rem', color: '#64748b', padding: '0.5rem 0' }}>
+                                                    Limite de {MAX_RECEIPTS} comprovantes atingido. Remova um para anexar outro.
+                                                </div>
+                                            )}
+
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.4rem' }}>
+                                                {total} de {MAX_RECEIPTS} anexados · imagem, PDF ou áudio
+                                            </div>
+                                        </>
+                                    )
+                                })()}
                             </div>
 
                             <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', marginTop: '1.5rem', border: '1px solid #e2e8f0' }}>

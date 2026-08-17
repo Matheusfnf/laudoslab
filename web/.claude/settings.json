@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "ask": [
+      "Edit(*.sql)",
+      "Write(*.sql)",
+      "Edit(**/*.sql)",
+      "Write(**/*.sql)",
+      "Bash(psql *)",
+      "Bash(supabase *)",
+      "Bash(npx supabase *)"
+    ]
+  }
+}
