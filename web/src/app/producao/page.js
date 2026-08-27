@@ -8,6 +8,35 @@ import { useRouter } from 'next/navigation'
 // Limite de comprovantes anexados por pedido (mínimo 1, máximo 3)
 const MAX_RECEIPTS = 3
 
+// Classe do produto — eixo independente do grupo biológico (type).
+// Um "Ativador X MB" é metabolito E continua sendo bacteria no campo type.
+const CATEGORIES = [
+    { id: 'cepa', label: 'Cepa', plural: 'Cepas', icon: '🧫', color: '#0ea5e9', bg: '#f0f9ff', border: '#bae6fd' },
+    { id: 'metabolito', label: 'Metabólito', plural: 'Metabólitos', icon: '⚗️', color: '#a855f7', bg: '#faf5ff', border: '#e9d5ff' },
+    { id: 'meio_cultura', label: 'Meio de Cultura', plural: 'Meios de Cultura', icon: '🧪', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a' }
+]
+
+const categoryInfo = (id) => CATEGORIES.find(c => c.id === id) || CATEGORIES[0]
+
+// Grupo biológico não se aplica a meio de cultura (não é fungo nem bactéria)
+const typeLabel = (type) => type === 'bacteria' ? '🦠 Bactéria' : type === 'fungus' ? '🍄 Fungo' : '📦 Outro'
+
+// Selo compacto de classe, usado nos cards e nas listas
+const CategoryBadge = ({ category, size = 'sm' }) => {
+    const info = categoryInfo(category)
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+            background: info.bg, color: info.color, border: `1px solid ${info.border}`,
+            borderRadius: '20px', padding: size === 'sm' ? '0.1rem 0.45rem' : '0.2rem 0.6rem',
+            fontSize: size === 'sm' ? '0.68rem' : '0.75rem', fontWeight: 700,
+            whiteSpace: 'nowrap', lineHeight: 1.5
+        }}>
+            {info.icon} {info.label}
+        </span>
+    )
+}
+
 // Pedidos antigos guardam um único comprovante em receipt_image_url.
 // Os novos usam a lista receipt_image_urls. Aqui os dois viram sempre uma lista.
 const normalizeReceiptUrls = (urls, legacyUrl) => {
@@ -40,7 +69,7 @@ export default function Producao() {
     const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false)
     const [editingCatalogId, setEditingCatalogId] = useState(null)
     const [newCatalogProduct, setNewCatalogProduct] = useState({
-        name: '', acronym: '', type: 'bacteria', shelf_life_months: 6, last_sequential_number: 0
+        name: '', acronym: '', category: 'cepa', type: 'bacteria', shelf_life_months: 6, last_sequential_number: 0
     })
 
     const [selectedOrderId, setSelectedOrderId] = useState(null)
@@ -129,6 +158,7 @@ export default function Producao() {
                     return {
                         id: item.id,
                         productName: item.product_name,
+                        productCategory: item.product_category || 'cepa',
                         quantityRequested: item.quantity_requested,
                         quantityProducedTotal: producedTotal, // In any status
                         quantityCompleted: producedCompleted, // Only 'done'
@@ -164,6 +194,7 @@ export default function Producao() {
                     expirationDate: batch.expiration_date,
                     status: batch.status,
                     productName: item.product_name || 'Desconhecido',
+                    productCategory: item.product_category || 'cepa',
                     unit: item.unit || 'UN',
                     orderNumber: order.order_number || '?',
                     client: order.client || '?',
@@ -307,6 +338,7 @@ export default function Producao() {
             items: orderToEdit.items.map(i => ({
                 id: i.id, // Original ID
                 productName: i.productName,
+                productCategory: i.productCategory || 'cepa',
                 quantity: i.quantityRequested.toString(),
                 unit: i.unit
             }))
@@ -341,9 +373,18 @@ export default function Producao() {
     // Modal Orders
     const handleAddOrderItem = () => {
         if (!currentItem.productName || !currentItem.quantity) return;
+
+        // A classe é congelada no item: se o catálogo for reclassificado depois,
+        // o pedido antigo continua mostrando o que era na época.
+        const catalogItem = catalogProducts.find(c => c.name === currentItem.productName)
+
         setNewOrder({
             ...newOrder,
-            items: [...newOrder.items, { ...currentItem, id: `temp_${Date.now()}` }]
+            items: [...newOrder.items, {
+                ...currentItem,
+                productCategory: catalogItem?.category || 'cepa',
+                id: `temp_${Date.now()}`
+            }]
         })
         setCurrentItem({ productName: '', quantity: '', unit: 'UN' })
     }
@@ -439,6 +480,7 @@ export default function Producao() {
                         itemsToInsert.push({
                             order_id: editingOrderId,
                             product_name: item.productName,
+                            product_category: item.productCategory || 'cepa',
                             quantity_requested: parseFloat(item.quantity),
                             unit: item.unit
                         })
@@ -448,6 +490,7 @@ export default function Producao() {
                             .from('production_order_items')
                             .update({
                                 product_name: item.productName,
+                                product_category: item.productCategory || 'cepa',
                                 quantity_requested: parseFloat(item.quantity),
                                 unit: item.unit
                             })
@@ -473,6 +516,7 @@ export default function Producao() {
                 const itemsToInsert = newOrder.items.map(item => ({
                     order_id: orderData.id,
                     product_name: item.productName,
+                    product_category: item.productCategory || 'cepa',
                     quantity_requested: parseFloat(item.quantity),
                     unit: item.unit
                 }))
@@ -702,8 +746,14 @@ export default function Producao() {
 
         // Busca o produto no catálogo para pegar a sigla (acronym)
         const catalogItem = catalogProducts.find(c => c.name === batch.productName);
+
+        // Meio de cultura imprime "MEIO DE CULTURA BAC/FUN"; o resto segue como ATIVADOR.
+        // A classe do lote vem do item do pedido; o catálogo é só o fallback.
+        const category = batch.productCategory || catalogItem?.category || 'cepa'
+        const titlePrefix = category === 'meio_cultura' ? 'MEIO DE CULTURA' : 'ATIVADOR'
+
         const titleText = catalogItem && catalogItem.acronym
-            ? `ATIVADOR ${catalogItem.acronym}`
+            ? `${titlePrefix} ${catalogItem.acronym}`
             : batch.productName;
 
         // O usuário solicitou que o volume seja sempre "5 Litros" para a etiqueta
@@ -887,7 +937,7 @@ export default function Producao() {
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <button
                                     onClick={() => {
-                                        setNewCatalogProduct({ name: '', acronym: '', type: 'bacteria', shelf_life_months: 6 })
+                                        setNewCatalogProduct({ name: '', acronym: '', category: 'cepa', type: 'bacteria', shelf_life_months: 6, last_sequential_number: 0 })
                                         setEditingCatalogId(null)
                                         setIsCatalogModalOpen(true)
                                     }}
@@ -1167,9 +1217,12 @@ export default function Producao() {
                                                                     transition: 'all 0.2s',
                                                                 }}>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                                                                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
-                                                                        {item.productName}
-                                                                    </h4>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 0 }}>
+                                                                        <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.3 }}>
+                                                                            {item.productName}
+                                                                        </h4>
+                                                                        <CategoryBadge category={item.productCategory} />
+                                                                    </div>
                                                                     {activeTab !== 'completed' && <GripVertical size={16} color="#cbd5e1" className="grip-handle" style={{ flexShrink: 0, cursor: 'grab' }} />}
                                                                 </div>
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1229,9 +1282,12 @@ export default function Producao() {
                                                                 }}
                                                             >
                                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                                                                    <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.25 }}>
-                                                                        {batch.productName}
-                                                                    </h4>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: 0 }}>
+                                                                        <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.25 }}>
+                                                                            {batch.productName}
+                                                                        </h4>
+                                                                        <CategoryBadge category={batch.productCategory} />
+                                                                    </div>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative' }}>
                                                                         <button
                                                                             onClick={(e) => {
@@ -1362,36 +1418,73 @@ export default function Producao() {
                                 <div style={{ flex: '1 1 100px' }}><label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Sigla *</label><input type="text" value={newCatalogProduct.acronym} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, acronym: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} placeholder="Ex: TR-A" /></div>
                             </div>
                             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end', marginTop: '1rem' }}>
-                                <div style={{ flex: '1 1 120px' }}>
-                                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Grupo</label>
-                                    <select value={newCatalogProduct.type} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, type: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}>
-                                        <option value="bacteria">Bactéria</option>
-                                        <option value="fungus">Fungo</option>
-                                        <option value="other">Outro</option>
+                                <div style={{ flex: '1 1 140px' }}>
+                                    <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Classe *</label>
+                                    <select
+                                        value={newCatalogProduct.category}
+                                        onChange={e => {
+                                            const category = e.target.value
+                                            // Meio de cultura não é bactéria nem fungo — o grupo vai para "Outro"
+                                            setNewCatalogProduct({
+                                                ...newCatalogProduct,
+                                                category,
+                                                type: category === 'meio_cultura' ? 'other' : newCatalogProduct.type
+                                            })
+                                        }}
+                                        style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}
+                                    >
+                                        {CATEGORIES.map(c => (
+                                            <option key={c.id} value={c.id}>{c.icon} {c.label}</option>
+                                        ))}
                                     </select>
                                 </div>
+                                {newCatalogProduct.category !== 'meio_cultura' && (
+                                    <div style={{ flex: '1 1 120px' }}>
+                                        <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Grupo</label>
+                                        <select value={newCatalogProduct.type} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, type: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}>
+                                            <option value="bacteria">Bactéria</option>
+                                            <option value="fungus">Fungo</option>
+                                            <option value="other">Outro</option>
+                                        </select>
+                                    </div>
+                                )}
                                 <div style={{ flex: '1 1 100px' }}><label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Validade (Meses)</label><input type="number" value={newCatalogProduct.shelf_life_months} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, shelf_life_months: parseInt(e.target.value) || 0 })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
                                 <div style={{ flex: '1 1 100px' }}><label style={{ fontSize: '0.8rem', fontWeight: 600 }} title="Último numeral gerado (ex: 7). O próximo lote será 08.">Contagem (Lote)</label><input type="number" value={newCatalogProduct.last_sequential_number} onChange={e => setNewCatalogProduct({ ...newCatalogProduct, last_sequential_number: parseInt(e.target.value) || 0 })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
                                 <button onClick={handleSaveCatalogProduct} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, height: '40px' }}>{editingCatalogId ? 'Salvar Edição' : 'Adicionar'}</button>
-                                {editingCatalogId && <button onClick={() => { setEditingCatalogId(null); setNewCatalogProduct({ name: '', acronym: '', type: 'bacteria', shelf_life_months: 6, last_sequential_number: 0 }) }} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, height: '40px' }}>Cancelar</button>}
+                                {editingCatalogId && <button onClick={() => { setEditingCatalogId(null); setNewCatalogProduct({ name: '', acronym: '', category: 'cepa', type: 'bacteria', shelf_life_months: 6, last_sequential_number: 0 }) }} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, height: '40px' }}>Cancelar</button>}
                             </div>
                         </div>
 
                         <div>
                             <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>Produtos Cadastrados ({catalogProducts.length})</h3>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '400px', overflowY: 'auto' }} className="hide-scrollbar">
-                                {catalogProducts.map(p => (
-                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                {CATEGORIES.flatMap(cat => {
+                                    const produtos = catalogProducts.filter(p => (p.category || 'cepa') === cat.id)
+                                    if (produtos.length === 0) return []
+
+                                    return [
+                                        <div key={`head_${cat.id}`} style={{
+                                            display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.5rem',
+                                            fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
+                                            letterSpacing: '0.03em', color: cat.color
+                                        }}>
+                                            {cat.icon} {cat.plural}
+                                            <span style={{ color: '#cbd5e1', fontWeight: 600 }}>({produtos.length})</span>
+                                        </div>,
+                                        ...produtos.map(p => (
+                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '0.8rem', borderRadius: '8px', border: '1px solid #e2e8f0', borderLeft: `3px solid ${cat.color}` }}>
                                         <div>
                                             <div style={{ fontWeight: 600, color: '#1e293b' }}>{p.name} <span style={{ color: '#0ea5e9', fontSize: '0.9rem', marginLeft: '0.5rem' }}>{p.acronym}</span></div>
-                                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{p.type === 'bacteria' ? '🦠 Bactéria' : p.type === 'fungus' ? '🍄 Fungo' : '📦 Outro'} • Validade: {p.shelf_life_months} meses • Contagem atual: {p.last_sequential_number || 0}</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#64748b' }}>{cat.id !== 'meio_cultura' && `${typeLabel(p.type)} • `}Validade: {p.shelf_life_months} meses • Contagem atual: {p.last_sequential_number || 0}</div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            <button onClick={() => { setEditingCatalogId(p.id); setNewCatalogProduct({ name: p.name, acronym: p.acronym, type: p.type, shelf_life_months: p.shelf_life_months, last_sequential_number: p.last_sequential_number || 0 }) }} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}><Edit2 size={16} /></button>
+                                            <button onClick={() => { setEditingCatalogId(p.id); setNewCatalogProduct({ name: p.name, acronym: p.acronym, category: p.category || 'cepa', type: p.type, shelf_life_months: p.shelf_life_months, last_sequential_number: p.last_sequential_number || 0 }) }} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px' }}><Edit2 size={16} /></button>
                                             <button onClick={() => handleDeleteCatalogProduct(p.id)} style={{ background: 'transparent', border: 'none', color: '#fca5a5', cursor: 'pointer', padding: '4px' }}><Trash2 size={16} /></button>
                                         </div>
                                     </div>
-                                ))}
+                                        ))
+                                    ]
+                                })}
                                 {catalogProducts.length === 0 && <div style={{ color: '#94a3b8', textAlign: 'center', padding: '2rem' }}>Nenhum produto cadastrado no catálogo.</div>}
                             </div>
                         </div>
@@ -1537,29 +1630,89 @@ export default function Producao() {
 
                             <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', marginTop: '1.5rem', border: '1px solid #e2e8f0' }}>
                                 <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 600 }}>Produtos Solicitados</h3>
-                                <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-                                    <div style={{ flex: '2 1 min-content', minWidth: '150px' }}>
-                                        <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Produto</label>
-                                        <select value={currentItem.productName} onChange={e => setCurrentItem({ ...currentItem, productName: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}>
-                                            <option value="" disabled>Selecione um produto</option>
-                                            {catalogProducts.map(cp => (
-                                                <option key={cp.id} value={cp.name}>{cp.name} ({cp.acronym})</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div style={{ flex: '1 1 auto', minWidth: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>Qtd Total</label><input type="number" value={currentItem.quantity} onChange={e => setCurrentItem({ ...currentItem, quantity: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} /></div>
-                                    <div style={{ flex: '1 1 auto', width: '80px' }}><label style={{ fontSize: '0.75rem', fontWeight: 600 }}>UN</label><select value={currentItem.unit} onChange={e => setCurrentItem({ ...currentItem, unit: e.target.value })} style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}><option value="UN">UN</option><option value="KG">KG</option><option value="LT">LT</option></select></div>
-                                    <button onClick={handleAddOrderItem} style={{ background: '#0ea5e9', color: '#fff', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, width: '100%', marginTop: '0.5rem' }}>Add</button>
-                                </div>
+                                {(() => {
+                                    // Altura fixa nos três controles: input e select têm altura
+                                    // intrínseca diferente e ficavam desalinhados.
+                                    const fieldLabel = { display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.3rem' }
+                                    const fieldControl = {
+                                        width: '100%', height: '42px', padding: '0 0.7rem',
+                                        borderRadius: '8px', border: '1px solid #cbd5e1',
+                                        background: '#fff', boxSizing: 'border-box', fontSize: '0.9rem'
+                                    }
+
+                                    return (
+                                        <div style={{ marginBottom: '1.5rem' }}>
+                                            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                                <div style={{ flex: '3 1 180px', minWidth: 0 }}>
+                                                    <label style={fieldLabel}>Produto</label>
+                                                    <select value={currentItem.productName} onChange={e => setCurrentItem({ ...currentItem, productName: e.target.value })} style={fieldControl}>
+                                                        <option value="" disabled>Selecione um produto</option>
+                                                        {/* Agrupado por classe para separar cepa, metabólito e meio de cultura */}
+                                                        {CATEGORIES.map(cat => {
+                                                            const produtos = catalogProducts.filter(cp => (cp.category || 'cepa') === cat.id)
+                                                            if (produtos.length === 0) return null
+                                                            return (
+                                                                <optgroup key={cat.id} label={`${cat.icon} ${cat.plural}`}>
+                                                                    {produtos.map(cp => (
+                                                                        <option key={cp.id} value={cp.name}>{cp.name} ({cp.acronym})</option>
+                                                                    ))}
+                                                                </optgroup>
+                                                            )
+                                                        })}
+                                                    </select>
+                                                </div>
+                                                <div style={{ flex: '1 1 100px', minWidth: 0 }}>
+                                                    <label style={fieldLabel}>Qtd Total</label>
+                                                    <input type="number" value={currentItem.quantity} onChange={e => setCurrentItem({ ...currentItem, quantity: e.target.value })} style={fieldControl} />
+                                                </div>
+                                                <div style={{ flex: '0 0 90px' }}>
+                                                    <label style={fieldLabel}>UN</label>
+                                                    <select value={currentItem.unit} onChange={e => setCurrentItem({ ...currentItem, unit: e.target.value })} style={fieldControl}>
+                                                        <option value="UN">UN</option><option value="KG">KG</option><option value="LT">LT</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            {/* Selo fora da linha dos campos, para não desalinhar as alturas */}
+                                            {currentItem.productName && (
+                                                <div style={{ marginTop: '0.6rem' }}>
+                                                    <CategoryBadge category={catalogProducts.find(c => c.name === currentItem.productName)?.category || 'cepa'} />
+                                                </div>
+                                            )}
+
+                                            <button onClick={handleAddOrderItem} style={{ background: '#0ea5e9', color: '#fff', border: 'none', height: '42px', padding: '0 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, width: '100%', marginTop: '0.75rem' }}>Add</button>
+                                        </div>
+                                    )
+                                })()}
 
                                 {newOrder.items.length > 0 ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                        {newOrder.items.map(item => (
-                                            <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                                <div style={{ fontSize: '0.85rem' }}><strong style={{ color: '#0ea5e9' }}>{item.quantity} {item.unit}</strong> • {item.productName}</div>
-                                                <button onClick={() => handleRemoveOrderItem(item.id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
-                                            </div>
-                                        ))}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                        {/* Itens separados por classe, na mesma ordem do seletor acima */}
+                                        {CATEGORIES.map(cat => {
+                                            const itensDaClasse = newOrder.items.filter(i => (i.productCategory || 'cepa') === cat.id)
+                                            if (itensDaClasse.length === 0) return null
+
+                                            return (
+                                                <div key={cat.id}>
+                                                    <div style={{
+                                                        display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem',
+                                                        fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
+                                                        letterSpacing: '0.03em', color: cat.color
+                                                    }}>
+                                                        {cat.icon} {cat.plural}
+                                                        <span style={{ color: '#cbd5e1', fontWeight: 600 }}>({itensDaClasse.length})</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                                        {itensDaClasse.map(item => (
+                                                            <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '0.75rem', borderRadius: '8px', border: `1px solid ${cat.border}`, borderLeft: `3px solid ${cat.color}` }}>
+                                                                <div style={{ fontSize: '0.85rem' }}><strong style={{ color: '#0ea5e9' }}>{item.quantity} {item.unit}</strong> • {item.productName}</div>
+                                                                <button onClick={() => handleRemoveOrderItem(item.id)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
                                     </div>
                                 ) : <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>Adicione os produtos do pedido</div>}
                             </div>

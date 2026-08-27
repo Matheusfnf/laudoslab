@@ -74,6 +74,19 @@ Um laudo tem `report_type` (`micro` | `seed` | `soil` | `root`); os tipos não-m
 guardam os resultados em `matrix_results` (JSONB). Cadastro é restrito por
 whitelist: um trigger em `auth.users` valida contra `allowed_emails`.
 
+Produto de produção tem **dois eixos independentes** em `catalog_products`:
+
+- `category` — classe comercial: `cepa` | `metabolito` | `meio_cultura`.
+  Os "Ativador X MB" são `metabolito`. Meio de cultura são dois produtos fixos,
+  siglas `BAC` e `FUN`.
+- `type` — grupo biológico: `bacteria` | `fungus` | `other`. Continua valendo
+  para cepa e metabólito; meio de cultura usa `other` e o campo é escondido na UI.
+
+A classe é copiada para `production_order_items.product_category` no momento do
+pedido, para o item não mudar de classe se o catálogo for reclassificado depois.
+Na etiqueta impressa, `meio_cultura` sai como `MEIO DE CULTURA {sigla}`; o resto
+sai como `ATIVADOR {sigla}`.
+
 ## Convenções
 
 - Interface toda em **português do Brasil**.
