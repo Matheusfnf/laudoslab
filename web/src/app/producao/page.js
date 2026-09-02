@@ -756,8 +756,9 @@ export default function Producao() {
             ? `${titlePrefix} ${catalogItem.acronym}`
             : batch.productName;
 
-        // O usuário solicitou que o volume seja sempre "5 Litros" para a etiqueta
-        const volumeText = `Volume: 5 Litros`;
+        // Volume fixo na etiqueta: meio de cultura sai em bombona de 10 L,
+        // cepa e metabólito seguem em 5 L.
+        const volumeText = category === 'meio_cultura' ? `Volume: 10 Litros` : `Volume: 5 Litros`;
 
         const htmlContent = `
             <!DOCTYPE html>
