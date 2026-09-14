@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText, Clipboard as ClipBoard, Layers, Printer, List } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { PlusCircle, Clock, CheckCircle2, ClipboardList, GripVertical, User, X, Trash2, Calendar, Package, ChevronDown, ChevronRight, ChevronLeft, Edit2, ScrollText, Clipboard as ClipBoard, Layers, Printer, List, FileDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import OrderReportPDFTemplate from '@/components/OrderReportPDFTemplate'
 
 // Limite de comprovantes anexados por pedido (mínimo 1, máximo 3)
 const MAX_RECEIPTS = 3
@@ -17,6 +18,27 @@ const CATEGORIES = [
 ]
 
 const categoryInfo = (id) => CATEGORIES.find(c => c.id === id) || CATEGORIES[0]
+
+// Espera todas as imagens de um elemento terminarem de carregar antes de
+// rasterizar para PDF. Uma imagem que falha não trava a geração: o relatório
+// sai com aquele anexo vazio em vez de não sair.
+const waitForImages = (element, timeoutMs = 15000) => {
+    const images = Array.from(element.querySelectorAll('img'))
+    if (images.length === 0) return Promise.resolve()
+
+    const pending = images.map(img => {
+        if (img.complete && img.naturalWidth > 0) return Promise.resolve()
+        return new Promise(resolve => {
+            img.addEventListener('load', resolve, { once: true })
+            img.addEventListener('error', resolve, { once: true })
+        })
+    })
+
+    return Promise.race([
+        Promise.all(pending),
+        new Promise(resolve => setTimeout(resolve, timeoutMs))
+    ])
+}
 
 // Grupo biológico não se aplica a meio de cultura (não é fungo nem bactéria)
 const typeLabel = (type) => type === 'bacteria' ? '🦠 Bactéria' : type === 'fungus' ? '🍄 Fungo' : '📦 Outro'
@@ -39,12 +61,19 @@ const CategoryBadge = ({ category, size = 'sm' }) => {
 
 // Pedidos antigos guardam um único comprovante em receipt_image_url.
 // Os novos usam a lista receipt_image_urls. Aqui os dois viram sempre uma lista.
+// Cada comprovante pode estar salvo como string pura (registros antigos) ou como
+// { url, description }. Mesmo padrão já usado em report_images nos laudos.
 const normalizeReceiptUrls = (urls, legacyUrl) => {
     if (Array.isArray(urls)) {
-        const cleaned = urls.filter(Boolean)
+        const cleaned = urls
+            .filter(Boolean)
+            .map(item => typeof item === 'string'
+                ? { url: item, description: '' }
+                : { url: item.url, description: item.description || '' })
+            .filter(r => r.url)
         if (cleaned.length > 0) return cleaned
     }
-    return legacyUrl ? [legacyUrl] : []
+    return legacyUrl ? [{ url: legacyUrl, description: '' }] : []
 }
 
 // Nome legível do arquivo a partir do URL público do Storage
@@ -86,6 +115,10 @@ export default function Producao() {
     const [imagePreviewUrl, setImagePreviewUrl] = useState(null)
     const [openDropdownId, setOpenDropdownId] = useState(null) // State para controlar o menu dropdown aberto
     const [activeTab, setActiveTab] = useState('active') // 'active' ou 'completed'
+
+    // Relatório do pedido em PDF
+    const orderReportRef = useRef(null)
+    const [isGeneratingReport, setIsGeneratingReport] = useState(false)
 
     // Form state for Order
     const [newOrder, setNewOrder] = useState({
@@ -416,10 +449,14 @@ export default function Producao() {
         }
 
         try {
-            // Mantém os comprovantes já salvos e envia os novos
-            const receiptUrls = [...keptUrls]
+            // Mantém os comprovantes já salvos (com a descrição) e envia os novos
+            const receiptUrls = keptUrls.map(r => ({
+                url: r.url,
+                description: (r.description || '').trim()
+            }))
 
-            for (const file of pendingFiles) {
+            for (const entry of pendingFiles) {
+                const file = entry.file;
                 const fileExt = file.name.split('.').pop();
                 const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
                 const filePath = `receipts/${fileName}`;
@@ -434,7 +471,10 @@ export default function Producao() {
                     .from('production-receipts')
                     .getPublicUrl(filePath);
 
-                receiptUrls.push(publicUrlData.publicUrl);
+                receiptUrls.push({
+                    url: publicUrlData.publicUrl,
+                    description: (entry.description || '').trim()
+                });
             }
 
             const payloadData = {
@@ -443,8 +483,8 @@ export default function Producao() {
                 requester_name: newOrder.requesterName || null,
                 order_date: newOrder.orderDate || null,
                 estimated_completion_date: newOrder.estimatedCompletionDate || null,
-                // Coluna antiga segue preenchida com o 1º comprovante (retrocompatibilidade)
-                receipt_image_url: receiptUrls[0] || null,
+                // Coluna antiga segue recebendo só o URL do 1º comprovante (retrocompatibilidade)
+                receipt_image_url: receiptUrls[0]?.url || null,
                 receipt_image_urls: receiptUrls.length > 0 ? receiptUrls : null
             };
 
@@ -735,6 +775,45 @@ export default function Producao() {
         if (!dateString) return '';
         const [year, month, day] = dateString.split('-');
         return `${day}/${month}/${year}`;
+    }
+
+    // Gera o relatório de acompanhamento do pedido selecionado, para enviar ao cliente
+    const handleGenerateOrderReport = async () => {
+        const order = orders.find(o => o.id === selectedOrderId)
+        if (!order || !orderReportRef.current) return
+
+        try {
+            setIsGeneratingReport(true)
+            const html2pdf = (await import('html2pdf.js/dist/html2pdf.min.js')).default
+
+            const element = orderReportRef.current
+            const originalDisplay = element.style.display
+            element.style.display = 'block'
+
+            // Os comprovantes vêm do Storage. Sem esperar o carregamento, o
+            // html2canvas captura a imagem ainda vazia e o anexo sai em branco.
+            await waitForImages(element)
+
+            const safeNumber = String(order.orderNumber || 'pedido').replace(/[\\/\\\\:*?"<>|]/g, '-').trim()
+            const safeClient = String(order.client || '').replace(/[\\/\\\\:*?"<>|]/g, '-').trim()
+
+            const opt = {
+                margin: 0,
+                filename: `Relatorio_Pedido_${safeNumber}${safeClient ? `_${safeClient}` : ''}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, logging: false },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+            }
+
+            await html2pdf().set(opt).from(element).save()
+            element.style.display = originalDisplay
+        } catch (error) {
+            console.error('Erro ao gerar relatório do pedido:', error)
+            alert('Não foi possível gerar o relatório em PDF. Tente novamente.')
+        } finally {
+            setIsGeneratingReport(false)
+        }
     }
 
     const handlePrintLabel = (batch) => {
@@ -1106,6 +1185,16 @@ export default function Producao() {
                                                 </button>
                                             </>
                                         )}
+                                        <button
+                                            onClick={handleGenerateOrderReport}
+                                            disabled={isGeneratingReport}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: isGeneratingReport ? '#bae6fd' : '#0ea5e9', color: '#fff', border: 'none', padding: '0.45rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: isGeneratingReport ? 'wait' : 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(14, 165, 233, 0.2)' }}
+                                            onMouseOver={e => { if (!isGeneratingReport) e.currentTarget.style.background = '#0284c7' }}
+                                            onMouseOut={e => { if (!isGeneratingReport) e.currentTarget.style.background = '#0ea5e9' }}
+                                            title="Gerar relatório em PDF do que foi pedido e do que já foi entregue"
+                                        >
+                                            <FileDown size={14} /> {isGeneratingReport ? 'Gerando...' : 'Relatório PDF'}
+                                        </button>
                                         <div style={{ width: '1px', height: '24px', background: '#e2e8f0', margin: '0 0.2rem' }} />
                                         <button onClick={() => setSelectedOrderId(null)} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', padding: '0.45rem 0.8rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}>
                                             Limpar Seleção
@@ -1127,15 +1216,23 @@ export default function Producao() {
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#fffbeb', padding: '0.2rem 0.6rem', borderRadius: '20px', border: '1px solid #fde68a', whiteSpace: 'nowrap' }}>
                                         <Calendar size={13} color="#f59e0b" /> <strong style={{ color: '#f59e0b' }}>Prev:</strong> {formatDateForDisplay(orders.find(o => o.id === selectedOrderId)?.estimatedCompletionDate) || '-'}
                                     </span>
-                                    {(orders.find(o => o.id === selectedOrderId)?.receiptImageUrls || []).map((url, idx, arr) => (
-                                        <button
-                                            key={url}
-                                            onClick={() => setImagePreviewUrl(url)}
-                                            style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                                        >
-                                            <ClipBoard size={13} /> {arr.length > 1 ? `Comprovante ${idx + 1}` : 'Comprovante'}
-                                        </button>
-                                    ))}
+                                    {(orders.find(o => o.id === selectedOrderId)?.receiptImageUrls || []).map((receipt, idx, arr) => {
+                                        // O título é sempre mantido; a legenda entra depois dele.
+                                        const fallback = arr.length > 1 ? `Comprovante ${idx + 1}` : 'Comprovante'
+                                        const description = (receipt.description || '').trim()
+                                        const label = description ? `${fallback}: ${description}` : fallback
+                                        return (
+                                            <button
+                                                key={receipt.url}
+                                                onClick={() => setImagePreviewUrl(receipt.url)}
+                                                title={label}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                            >
+                                                <ClipBoard size={13} style={{ flexShrink: 0 }} />
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+                                            </button>
+                                        )
+                                    })}
                                 </div>
                             </div>
 
@@ -1540,14 +1637,22 @@ export default function Producao() {
                                     const remaining = MAX_RECEIPTS - total
 
                                     const chipStyle = {
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        gap: '0.75rem', background: '#f0fdf4', border: '1px solid #bbf7d0',
+                                        background: '#f0fdf4', border: '1px solid #bbf7d0',
                                         borderRadius: '8px', padding: '0.5rem 0.75rem', marginBottom: '0.5rem',
                                         fontSize: '0.85rem'
+                                    }
+                                    const chipHeader = {
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem'
                                     }
                                     const removeBtnStyle = {
                                         background: 'transparent', border: 'none', cursor: 'pointer',
                                         color: '#ef4444', display: 'flex', alignItems: 'center', padding: '0.2rem'
+                                    }
+                                    // Campo de legenda: discreto, sem borda, para não pesar a tela
+                                    const descInputStyle = {
+                                        width: '100%', marginTop: '0.35rem', padding: '0.15rem 0',
+                                        border: 'none', borderBottom: '1px dashed #cbd5e1', background: 'transparent',
+                                        fontSize: '0.78rem', color: '#475569', outline: 'none'
                                     }
 
                                     return (
@@ -1557,43 +1662,69 @@ export default function Producao() {
                                             </label>
 
                                             {/* Já salvos no banco */}
-                                            {keptUrls.map((url, idx) => (
-                                                <div key={url} style={chipStyle}>
-                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#15803d', overflow: 'hidden' }}>
-                                                        <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                                            {keptUrls.map((receipt, idx) => (
+                                                <div key={receipt.url} style={chipStyle}>
+                                                    <div style={chipHeader}>
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#15803d', overflow: 'hidden' }}>
+                                                            <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setImagePreviewUrl(receipt.url)}
+                                                                style={{ background: 'transparent', border: 'none', padding: 0, color: '#15803d', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.85rem' }}
+                                                            >
+                                                                {receiptLabel(receipt.url, idx)}
+                                                            </button>
+                                                        </span>
                                                         <button
                                                             type="button"
-                                                            onClick={() => setImagePreviewUrl(url)}
-                                                            style={{ background: 'transparent', border: 'none', padding: 0, color: '#15803d', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.85rem' }}
+                                                            title="Remover comprovante"
+                                                            onClick={() => setNewOrder({ ...newOrder, receiptUrls: keptUrls.filter(r => r.url !== receipt.url) })}
+                                                            style={removeBtnStyle}
                                                         >
-                                                            {receiptLabel(url, idx)}
+                                                            <Trash2 size={15} />
                                                         </button>
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        title="Remover comprovante"
-                                                        onClick={() => setNewOrder({ ...newOrder, receiptUrls: keptUrls.filter(u => u !== url) })}
-                                                        style={removeBtnStyle}
-                                                    >
-                                                        <Trash2 size={15} />
-                                                    </button>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={receipt.description || ''}
+                                                        maxLength={120}
+                                                        placeholder="Do que se trata? (opcional)"
+                                                        onChange={e => {
+                                                            const updated = keptUrls.map((r, i) => i === idx ? { ...r, description: e.target.value } : r)
+                                                            setNewOrder({ ...newOrder, receiptUrls: updated })
+                                                        }}
+                                                        style={descInputStyle}
+                                                    />
                                                 </div>
                                             ))}
 
                                             {/* Selecionados agora, ainda não enviados */}
-                                            {pendingFiles.map((file, idx) => (
-                                                <div key={`${file.name}_${idx}`} style={{ ...chipStyle, background: '#f0f9ff', border: '1px solid #bae6fd' }}>
-                                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0284c7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        <ClipBoard size={16} style={{ flexShrink: 0 }} /> {file.name}
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        title="Remover arquivo"
-                                                        onClick={() => setNewOrder({ ...newOrder, receiptFiles: pendingFiles.filter((_, i) => i !== idx) })}
-                                                        style={removeBtnStyle}
-                                                    >
-                                                        <Trash2 size={15} />
-                                                    </button>
+                                            {pendingFiles.map((entry, idx) => (
+                                                <div key={`${entry.file.name}_${idx}`} style={{ ...chipStyle, background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                                                    <div style={chipHeader}>
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#0284c7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            <ClipBoard size={16} style={{ flexShrink: 0 }} /> {entry.file.name}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            title="Remover arquivo"
+                                                            onClick={() => setNewOrder({ ...newOrder, receiptFiles: pendingFiles.filter((_, i) => i !== idx) })}
+                                                            style={removeBtnStyle}
+                                                        >
+                                                            <Trash2 size={15} />
+                                                        </button>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        value={entry.description || ''}
+                                                        maxLength={120}
+                                                        placeholder="Do que se trata? (opcional)"
+                                                        onChange={e => {
+                                                            const updated = pendingFiles.map((f, i) => i === idx ? { ...f, description: e.target.value } : f)
+                                                            setNewOrder({ ...newOrder, receiptFiles: updated })
+                                                        }}
+                                                        style={descInputStyle}
+                                                    />
                                                 </div>
                                             ))}
 
@@ -1610,7 +1741,8 @@ export default function Producao() {
                                                             alert(`Você pode anexar no máximo ${MAX_RECEIPTS} comprovantes. Restam ${remaining}.`)
                                                         }
 
-                                                        setNewOrder({ ...newOrder, receiptFiles: [...pendingFiles, ...picked.slice(0, remaining)] })
+                                                        const novos = picked.slice(0, remaining).map(file => ({ file, description: '' }))
+                                                        setNewOrder({ ...newOrder, receiptFiles: [...pendingFiles, ...novos] })
                                                         e.target.value = '' // permite reenviar o mesmo arquivo depois de remover
                                                     }}
                                                     style={{ padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: '8px', width: '100%', background: '#f8fafc' }}
@@ -1809,6 +1941,15 @@ export default function Producao() {
                     </div>
                 )
             }
+
+            {/* Template do relatório do pedido — fica fora da tela, só é usado na geração do PDF */}
+            <div style={{ display: 'none' }}>
+                <OrderReportPDFTemplate
+                    ref={orderReportRef}
+                    order={orders.find(o => o.id === selectedOrderId) || null}
+                    batches={batches.filter(b => b.orderId === selectedOrderId)}
+                />
+            </div>
         </div >
     )
 }
